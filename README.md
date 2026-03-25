@@ -1,335 +1,140 @@
-# Hi there! I'm Ayush Bisht
+🚀 Selective Blockchain Trust Layer for Freelancing
+🌍 The Story Behind This Project
 
-I’m a Computer Science student at **Meerut Institute of Engeneering and Technology**.
+Meet Raj.
 
-## About Me
-- 🔭 I’m currently working on **App Development**
-- 🌱 I’m currently learning **App Development and DSA**
-- 💡 I love to explore new things in tech
+Raj is a freelance developer. He spends nights building projects, meeting deadlines, and delivering quality work. One day, he completes a project for a client.
 
-## Languages & Tools
-aws • azure • bash • c • css3 • docker • express • git • html5 • java • javascript • linux • materialize • mongodb • mysql • nextjs • nodejs • postman • python • react • tailwind • typescript • wx_widgets
+But then…
 
-<!--
-# Blockchain-Backed Federated Learning Trust System
+The client disappears ❌
+Payment is never made ❌
+Proof of work is questioned ❌
 
-A simulation project that combines federated learning (FL) with a blockchain trust layer. Clients submit local model updates to a Python aggregator, while update hashes and trust scores are managed on-chain through a Solidity smart contract.
+Raj has screenshots, chats, commits — but none of it is trusted enough.
 
-This repository demonstrates how to:
-- accept FL model updates from multiple clients,
-- detect suspicious updates with a server-side anomaly check,
-- penalize malicious behavior using a smart contract,
-- reject low-trust clients,
-- track trust evolution round by round.
+Now flip the situation.
 
-## What This Project Contains
+Another day, Raj is hiring a freelancer. The profile looks perfect — 5⭐ ratings, great reviews. But after hiring:
 
-- `backend/server/main.py`: FastAPI aggregator server.
-- `backend/server/blockchain_interface.py`: Web3 + contract binding used by server.
-- `backend/clients/client_base.py`: shared FL client implementation.
-- `backend/clients/client1.py`, `client2.py`, `client3.py`: normal and mixed-behavior clients.
-- `backend/clients/malicious_client.py`: strongly poisoned client.
-- `blockchain/contracts/TrustLayer.sol`: trust management smart contract.
-- `blockchain/scripts/deploy.js`: deployment script.
-- `plot_trust.py`: trust score visualization from server state.
+Work quality is poor ❌
+Deadlines are missed ❌
+Reviews turn out to be fake ❌
 
-## Architecture
+Raj loses both money and trust.
 
-```text
-+-----------------------------+        +------------------------------+
-|   FL Clients (Python)       |        |   FastAPI Aggregator Server  |
-| - train local weights       | -----> | /submit_update               |
-| - hash update               |        | - anomaly detection          |
-| - submit hash on-chain      |        | - trust check via contract   |
-+-----------------------------+        | - stores valid updates       |
-          |                            +---------------+--------------+
-          |                                            |
-          v                                            v
-+-----------------------------+        +------------------------------+
-|   TrustLayer.sol            | <----> |   Ganache Local Blockchain   |
-| - register client           |        | - accounts/transactions      |
-| - store update hash         |        | - contract state             |
-| - penalize + blacklist      |        +------------------------------+
-+-----------------------------+
-```
+❗ The Bigger Problem
 
-## End-to-End Flow
+Raj is not alone.
 
-1. A client registers on-chain (`registerClient`).
-2. Client fetches current global model from server (`/get_global_model`).
-3. Client trains locally (noise-based simulation).
-4. Client hashes local weights and submits hash on-chain (`submitHash(round, hash)`).
-5. Client sends raw weights to server (`/submit_update`).
-6. Server computes deviation from current global model.
-7. If deviation is high, server penalizes client on-chain (`penalizeClient`).
-8. If trust is below threshold, update is rejected.
-9. Valid updates are aggregated by calling `/aggregate`.
-10. Server records trust history and advances round.
+Freelancing platforms today face serious trust issues:
 
-## Trust Model (Smart Contract)
+💸 Millions lost in freelance fraud every year
+🤖 Fake reviews and manipulated ratings are common
+⚖️ Disputes are hard to resolve due to lack of verifiable proof
+🏢 Centralized systems control trust → can be biased or opaque
+📊 Reality Check
+Around 30–40% of freelancers report payment-related issues at least once
+A significant portion of online reviews (~20–30%) are estimated to be fake
+Trust remains one of the top 3 challenges in the gig economy
 
-Defined in `TrustLayer.sol`:
-- `INITIAL_TRUST = 100`
-- `PENALTY = 20`
-- `THRESHOLD = 40`
+👉 Current systems solve only ~50–60% of trust problems
+👉 The rest still depends on blind belief
 
-Behavior:
-- New registered clients start at trust 100.
-- Penalty subtracts 20 each time malicious behavior is detected.
-- Once trust drops below 40, client is blacklisted.
-- Blacklisted clients cannot submit update hashes.
+💡 Our Solution
 
-## Detection Logic (Server)
+Selective Blockchain Trust Layer changes this completely.
 
-In `backend/server/main.py`:
-- Server computes `deviation = ||weights - global_model||` (L2 norm).
-- Current dynamic threshold is hardcoded as `2.0`.
-- If deviation > 2.0, the update is considered malicious and the client is penalized.
-- If trust < contract threshold, update is rejected.
-- Otherwise update is accepted for aggregation.
+Instead of forcing users to blindly trust, it enables them to:
 
-## Prerequisites
+🔍 Verify → Analyze → Then Trust
 
-- Python 3.10+
-- Node.js 18+
-- npm
-- Ganache GUI or Ganache CLI
+⚙️ How Raj’s Problem Gets Solved
 
-## Setup
+With this system:
 
-## 1) Install blockchain dependencies
-
-```bash
+✅ When Raj completes work
+Work proof is stored on blockchain
+Immutable record → cannot be denied
+Payment disputes become traceable
+✅ When Raj hires someone
+He sees:
+Real trust score
+Verified transaction history
+Risk indicators
+✅ If something goes wrong
+Dispute is logged transparently
+Evidence is already recorded
+Resolution becomes data-driven
+✨ Core Features
+🔐 Trust Score System
+Dynamic scoring based on real activity, not just ratings
+🧠 Anomaly Detection
+Detects suspicious users and fraud patterns
+🎯 Selective Trust Mechanism
+Users decide whom to trust based on actual data
+⚖️ Transparent Dispute Resolution
+Blockchain-backed evidence system
+⛓️ Immutable Records
+No tampering, no fake proofs
+🛠️ Tech Stack
+Backend: FastAPI (Python)
+Frontend: React.js
+Blockchain: Solidity + Ganache
+Web3 Integration: Web3.js
+Database: MySQL
+DevOps: Docker
+📁 Project Structure
+Selective-Blockchain-Trust-Layer/
+│
+├── backend/        # FastAPI backend
+├── frontend/       # React frontend
+├── blockchain/     # Smart contracts (Solidity)
+├── docker/         # Container setup
+└── README.md
+⚙️ Setup (Quick Start)
+Backend
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+Blockchain
 cd blockchain
 npm install
-```
+truffle migrate
+Frontend
+cd frontend
+npm install
+npm start
+💼 Real-World Use Cases
+Freelancer gets paid securely
+Clients avoid fake profiles
+Platforms reduce fraud
+Disputes become transparent
+📊 Impact Vision
 
-## 2) Start Ganache
+This project aims to:
 
-Run Ganache on:
-- RPC URL: `http://127.0.0.1:7545`
+Reduce freelance fraud significantly
+Improve trust transparency
+Eliminate fake reputation systems
 
-Important:
-- The server must use an account that is the **contract owner** to call `penalizeClient`.
-- In `backend/server/blockchain_interface.py`, default account is set to `w3.eth.accounts[0]`.
-- Ensure contract was deployed from the same address, or update the default account logic.
+👉 Goal: Solve 80%+ trust issues in freelancing ecosystems
 
-## 3) Deploy contract
+🤝 Contribution
 
-```bash
-cd blockchain
-npx hardhat run scripts/deploy.js --network ganache
-```
+Feel free to fork, improve, and contribute.
 
-Copy deployed contract address from output.
+git checkout -b feature/your-feature
+📬 Contact
 
-## 4) Update contract address references
+Ayush Bisht
+📧 ayushbisht0902@gmail.com
 
-Update these files with the new deployed address:
-- `backend/server/blockchain_interface.py` (`contract_address`)
-- `backend/clients/client_base.py` (`CONTRACT_ADDRESS`)
+🌐 https://ayushbisht.me
 
-ABI must match deployed contract. The current ABI is inlined in both files.
+💻 https://github.com/WebDev-Ayush
 
-## 5) Install Python dependencies
+⭐ Final Thought
 
-From repository root:
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install fastapi uvicorn numpy requests web3 matplotlib pydantic
-```
-
-## Running the System
-
-Because `backend/server/main.py` imports `blockchain_interface` as a local module, start server from `backend/server` directory.
-
-## 1) Start aggregator server
-
-```bash
-cd backend/server
-uvicorn main:app --reload --port 8000
-```
-
-Health check:
-
-```bash
-curl http://127.0.0.1:8000/
-```
-
-## 2) Run clients (new terminal, repo root)
-
-Run clients as modules so relative imports work:
-
-```bash
-python -m backend.clients.client1
-python -m backend.clients.client2
-python -m backend.clients.client3
-```
-
-Optional malicious client:
-
-```bash
-python -m backend.clients.malicious_client
-```
-
-## 3) Trigger aggregation
-
-After desired client submissions for current round:
-
-```bash
-curl -X POST http://127.0.0.1:8000/aggregate
-```
-
-Repeat client submissions and aggregation for multiple rounds.
-
-## 4) View trust history
-
-```bash
-curl http://127.0.0.1:8000/trust_history
-```
-
-## 5) Plot trust evolution
-
-From repo root:
-
-```bash
-python plot_trust.py
-```
-
-## API Reference
-
-## `GET /`
-
-Returns server status.
-
-Example response:
-
-```json
-{"message": "Aggregator Server is running"}
-```
-
-## `GET /get_global_model`
-
-Returns current round and global model weights.
-
-Example response:
-
-```json
-{
-  "round": 1,
-  "weights": [0.5, 0.5, 0.5]
-}
-```
-
-## `POST /submit_update`
-
-Submit a client model update.
-
-Request body:
-
-```json
-{
-  "client_id": "client_1",
-  "client_address": "0x...",
-  "weights": [0.61, 0.43, 0.52]
-}
-```
-
-Possible responses include:
-- `Update accepted`
-- `Client penalized for malicious update`
-- `Client rejected due to low trust`
-- `Already submitted for this round`
-
-## `POST /aggregate`
-
-Runs federated averaging on accepted updates, records trust snapshot, clears round buffers, and increments round.
-
-## `GET /trust_history`
-
-Returns historical trust values captured per round.
-
-## Client Behavior Profiles
-
-- `client1.py`: honest client.
-- `client2.py`: alternates behavior; malicious on even rounds.
-- `client3.py`: honest client.
-- `malicious_client.py`: submits strongly poisoned update (`+ [50, 50, 50]`).
-
-## Results and Analysis
-
-Place your figure files in `docs/images/` using the exact names below.
-
-<figure>
-  <img src="docs/images/trust-evolution.png" alt="Line chart of trust evolution across rounds where client_1 stays at trust 100, client_2 declines from 100 to 60, and malicious_client drops from 80 to 20 by round 3." width="900" />
-  <figcaption>
-    <strong>Trust Evolution Across Rounds.</strong>
-    This plot shows the on-chain trust mechanism differentiating client behavior over time. `client_1` stays at 100, indicating consistently acceptable updates. `client_2` declines from 100 to 60, which reflects intermittent malicious behavior and periodic penalties. `malicious_client` falls quickly from 80 to 20, showing strong enforcement against persistent adversarial updates.
-  </figcaption>
-</figure>
-
-<figure>
-  <img src="docs/images/accuracy-comparison.png" alt="Line chart comparing validation accuracy under adversarial attack: Vanilla FL decreases from about 92% to 57%, while Selective Trust FL declines only from about 92% to 85% over ten rounds." width="900" />
-  <figcaption>
-    <strong>Model Accuracy Under Adversarial Attack.</strong>
-    Vanilla federated averaging degrades steadily as poisoned updates influence the global model. Selective Trust FL maintains significantly higher validation accuracy by reducing the impact of low-trust participants. The widening gap between curves across rounds indicates improved robustness of trust-aware aggregation.
-  </figcaption>
-</figure>
-
-<figure>
-  <img src="docs/images/gas-cost-comparison.png" alt="Bar chart comparing gas usage per training round: Fully On-Chain uses 1,500,000 gas and Semi-On-Chain uses 120,000 gas, an approximate 87% reduction." width="900" />
-  <figcaption>
-    <strong>Gas Cost: Fully On-Chain vs Semi-On-Chain.</strong>
-    Fully on-chain aggregation consumes much more gas because aggregation logic and data handling are executed in smart contracts. Semi-on-chain FL keeps only trust-critical metadata on-chain while offloading bulk computation, reducing gas from 1,500,000 to 120,000 per round (about 87% lower), which is substantially more cost-efficient.
-  </figcaption>
-</figure>
-
-<figure>
-  <img src="docs/images/latency-comparison.png" alt="Box plot comparing round completion time: Fully On-Chain mean latency is about 12.1 seconds and Semi-On-Chain mean latency is about 3.4 seconds, around 72% lower." width="900" />
-  <figcaption>
-    <strong>Round Completion Latency Comparison.</strong>
-    Fully on-chain training introduces higher round latency due to contract execution and block confirmation waits. Semi-on-chain FL reduces synchronization overhead and shortens round time from a mean of about 12.1s to about 3.4s (roughly 72% reduction), improving training throughput and responsiveness.
-  </figcaption>
-</figure>
-
-## Notes and Caveats
-
-- `expected_clients` variable exists in server but is not currently enforced.
-- Aggregation is manual (`POST /aggregate`), not automatic when all clients submit.
-- Contract ABI and address are duplicated between files; drift can break runtime behavior.
-- `backend/blockchain_connect.py` appears experimental and currently contains invalid Python literals (`false` instead of `False`) if executed.
-
-## Troubleshooting
-
-- `Blockchain connected: False`
-  - Verify Ganache is running on `127.0.0.1:7545`.
-
-- `Not authorized` when penalizing
-  - Contract owner does not match server default account.
-  - Redeploy from matching account or update server account selection.
-
-- `ModuleNotFoundError` for client scripts
-  - Run clients as modules (`python -m backend.clients.client1`) from repo root.
-
-- `Already registered`
-  - Expected if same account registers multiple times.
-
-- No aggregation effect
-  - Ensure at least one valid update accepted before calling `/aggregate`.
-
-## Suggested Improvements
-
-- Move ABI and contract address into a shared config file or `.env`.
-- Add hash verification on server (compare received weights hash vs on-chain hash).
-- Add authentication/signatures for client identity.
-- Replace static anomaly threshold with adaptive or robust aggregation.
-- Add tests for server endpoints and contract integration.
-- Add Docker Compose for one-command local startup.
-
-## License
-
-No license file is currently present in this repository.
--->
+Trust should not be assumed.
+It should be verified.
