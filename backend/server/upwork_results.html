@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Upwork TrustScore - Results</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #f8fafc; color: #0f172a; }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 22px; }
+      header { background: linear-gradient(180deg,#f1f5ff,white); border-bottom: 1px solid #e5e7eb; }
+      .top { display:flex; align-items:center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+      h1 { margin: 0; font-size: 26px; }
+      .muted { color: #64748b; font-size: 13px; }
+      .btn { padding: 10px 14px; border-radius: 12px; border: 1px solid #dbeafe; background: white; cursor: pointer; font-weight: 900; color: #1d4ed8; text-decoration: none; display: inline-block; }
+      .btn.primary { background: #1d4ed8; border-color:#1d4ed8; color: white; }
+      .card { background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; margin-top: 14px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { border-bottom: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+      th { color:#334155; font-weight:900; }
+      code { background:#f1f5f9; padding:2px 6px; border-radius:8px; }
+      .log { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; background: #f1f5f9; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; white-space: pre-wrap; }
+      .badge { display:inline-block; padding:4px 10px; border-radius: 999px; border:1px solid; font-size:12px; font-weight:900; }
+      .ok { color:#059669; border-color:#10b981; background:#ecfdf5; }
+      .bad { color:#b91c1c; border-color:#ef4444; background:#fef2f2; }
+      .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="top">
+          <div>
+            <h1>Results</h1>
+            <div class="muted">Decision committed + trust snapshot.</div>
+          </div>
+          <div class="row">
+            <a class="btn" href="/upwork/create">New Job</a>
+            <a class="btn" href="/dashboard">Dashboard</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="card">
+        <div class="row">
+          <div class="muted">job_id:</div>
+          <div id="jobId" style="font-weight:900;"></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="muted" style="font-weight:900; margin-bottom:8px;">AI Verdict</div>
+          <div id="aiBlock" class="log">Loading...</div>
+        </div>
+        <div class="card">
+          <div class="muted" style="font-weight:900; margin-bottom:8px;">Decision</div>
+          <div id="decisionBlock" class="log">Loading...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="muted" style="font-weight:900; margin-bottom:8px;">On-chain commitment hashes</div>
+        <div id="commitBlock" class="log">Loading...</div>
+      </div>
+
+      <div class="card">
+        <div class="muted" style="font-weight:900; margin-bottom:8px;">Clients trust (known demo participants)</div>
+        <table>
+          <thead>
+            <tr><th>client</th><th>address</th><th>trust</th><th>blacklisted</th></tr>
+          </thead>
+          <tbody id="clientsTbody"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const jobId = localStorage.getItem("upwork_job_id");
+      $("jobId").textContent = jobId ? jobId : "(missing)";
+
+      function shortAddr(addr) {
+        if (!addr) return "-";
+        return String(addr).slice(0,10) + "..." + String(addr).slice(-6);
+      }
+
+      async function refresh() {
+        try {
+          const statusRes = await fetch(`/upwork/job/status?job_id=${encodeURIComponent(jobId)}`);
+          const status = await statusRes.json();
+          const job = status.job;
+
+          $("aiBlock").textContent = JSON.stringify(job.ai_result || {}, null, 2);
+          $("decisionBlock").textContent = JSON.stringify({decision: job.decision, decision_hash_hex: job.decision_hash_hex}, null, 2);
+          $("commitBlock").textContent = JSON.stringify(job.onchain_commitments || {}, null, 2);
+
+          const clientsRes = await fetch("/clients_snapshot");
+          const clients = await clientsRes.json();
+
+          const tbody = $("clientsTbody");
+          tbody.innerHTML = "";
+          Object.entries(clients).forEach(([cid, info]) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${cid}</td>
+              <td>${shortAddr(info.address)}</td>
+              <td>${info.trust}</td>
+              <td>${info.blacklisted}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } catch (e) {
+          $("aiBlock").textContent = "Error: " + e;
+          console.error(e);
+        }
+      }
+
+      refresh();
+    </script>
+  </body>
+</html>
+

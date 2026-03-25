@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Results - TrustScore</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #f8fafc; color: #0f172a; }
+      .wrap { max-width: 1200px; margin: 0 auto; padding: 22px; }
+      header { background: linear-gradient(180deg,#f1f5ff,white); border-bottom: 1px solid #e5e7eb; }
+      .top { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+      h1 { margin: 0; font-size: 26px; }
+      .muted { color: #64748b; font-size: 13px; }
+      .btn { padding: 10px 14px; border-radius: 12px; border: 1px solid #dbeafe; background: white; cursor: pointer; font-weight: 900; color: #1d4ed8; text-decoration: none; display: inline-block; }
+      .btn.primary { background: #1d4ed8; border-color: #1d4ed8; color: white; }
+      .card { background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; margin-top: 14px; }
+      .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+      .col6 { grid-column: span 6; }
+      .col12 { grid-column: 1 / -1; }
+      @media (max-width: 980px) { .col6 { grid-column: 1 / -1; } }
+      .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid; font-size: 12px; font-weight: 900; }
+      .low { color: #059669; border-color: #10b981; background: #ecfdf5; }
+      .medium { color: #b45309; border-color: #f59e0b; background: #fffbeb; }
+      .high { color: #b91c1c; border-color: #ef4444; background: #fef2f2; }
+      .blacklisted { color: #111827; border-color: #9ca3af; background: #f3f4f6; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { border-bottom: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+      th { color: #334155; }
+      svg { width: 100%; height: 280px; }
+      .chart { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; }
+      .log { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; background: #f1f5f9; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; white-space: pre-wrap; }
+      .big { font-size: 18px; font-weight: 900; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="top">
+          <div>
+            <h1>Results</h1>
+            <div class="muted">After clicking Aggregate, trust snapshots are recorded on server + blockchain.</div>
+          </div>
+          <div>
+            <a class="btn" href="/run">Back to Run</a>
+            <a class="btn primary" href="/dashboard">Dashboard</a>
+            <a class="btn" href="/">Home</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="log" id="log" aria-live="polite">Loading...</div>
+
+      <div class="grid">
+        <div class="card col6">
+          <div class="big">On-chain Trust Snapshot</div>
+          <div class="muted" id="roundBadge" style="margin-top:6px;">Round: -</div>
+          <div style="height:10px;"></div>
+          <table aria-label="results clients trust">
+            <thead>
+              <tr><th>Client</th><th>Address</th><th>Trust</th><th>Status</th></tr>
+            </thead>
+            <tbody id="clientsTbody"></tbody>
+          </table>
+        </div>
+        <div class="card col6">
+          <div class="big">Trust Evolution (history)</div>
+          <div class="muted" style="margin-top:6px;">Chart updates from <code>/trust_history</code>.</div>
+          <div class="chart" style="margin-top:12px;">
+            <svg id="trustChart" viewBox="0 0 800 280" preserveAspectRatio="none" aria-label="trust evolution chart"></svg>
+          </div>
+        </div>
+        <div class="card col12">
+          <div class="big">What to mention during demo</div>
+          <div class="muted" style="margin-top:10px;">
+            1) Client submits model update hash on-chain.<br/>
+            2) Server verifies weights hash match for that round.<br/>
+            3) ML gate flags malicious updates.<br/>
+            4) Server penalizes client and blacklists on-chain.<br/>
+            5) UI shows trust drop & blacklist clearly.
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      function shortAddr(addr) {
+        if (!addr) return "-";
+        return String(addr).slice(0, 10) + "..." + String(addr).slice(-6);
+      }
+
+      function statusBadge(trust, blacklisted) {
+        if (blacklisted) return `<span class="badge blacklisted">Blacklisted</span>`;
+        if (trust === null || trust === undefined) return `<span class="badge blacklisted">N/A</span>`;
+        if (trust <= 0) return `<span class="badge high">Blacklisted</span>`;
+        if (trust < 40) return `<span class="badge high">High</span>`;
+        if (trust < 80) return `<span class="badge medium">Medium</span>`;
+        return `<span class="badge low">Low</span>`;
+      }
+
+      function clearSvg(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+
+      function renderChart(trustHistory) {
+        const svg = $("trustChart");
+        clearSvg(svg);
+
+        const clientIds = Object.keys(trustHistory || {});
+        if (clientIds.length === 0) {
+          const t = document.createElementNS("http://www.w3.org/2000/svg","text");
+          t.setAttribute("x","24"); t.setAttribute("y","140");
+          t.setAttribute("fill","#64748b");
+          t.textContent = "No history yet. Click Aggregate from Start Demo.";
+          svg.appendChild(t);
+          return;
+        }
+
+        const COLORS = ["#1d4ed8","#7c3aed","#059669","#dc2626"];
+        const maxRounds = Math.max(...clientIds.map(cid => (trustHistory[cid] || []).length), 1);
+
+        const W = 800, H = 280;
+        const padL = 48, padR = 20, padT = 18, padB = 34;
+        const plotW = W - padL - padR;
+        const plotH = H - padT - padB;
+
+        const yMin = 0, yMax = 100;
+        function xAt(i) { return padL + (maxRounds === 1 ? plotW/2 : (i/(maxRounds-1))*plotW); }
+        function yAt(v) { const t = (v-yMin)/(yMax-yMin); return padT + (1-t)*plotH; }
+
+        for (let k=0;k<=4;k++){
+          const y = padT + (k/4)*plotH;
+          const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+          line.setAttribute("x1",padL); line.setAttribute("x2",padL+plotW);
+          line.setAttribute("y1",y); line.setAttribute("y2",y);
+          line.setAttribute("stroke","#e5e7eb"); line.setAttribute("stroke-width","1");
+          svg.appendChild(line);
+        }
+
+        clientIds.forEach((cid, idx) => {
+          const vals = trustHistory[cid] || [];
+          const color = COLORS[idx % COLORS.length];
+          const points = vals.map((v,i)=> `${xAt(i)},${yAt(v)}`).join(" ");
+          const pl=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+          pl.setAttribute("points", points);
+          pl.setAttribute("fill","none");
+          pl.setAttribute("stroke", color);
+          pl.setAttribute("stroke-width","2");
+          svg.appendChild(pl);
+
+          if (vals.length) {
+            const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+            c.setAttribute("cx", xAt(vals.length-1));
+            c.setAttribute("cy", yAt(vals[vals.length-1]));
+            c.setAttribute("r","4");
+            c.setAttribute("fill", color);
+            svg.appendChild(c);
+          }
+        });
+      }
+
+      async function refresh() {
+        try {
+          const [histRes, clientsRes, roundRes] = await Promise.all([
+            fetch("/trust_history"),
+            fetch("/clients_snapshot"),
+            fetch("/get_global_model"),
+          ]);
+
+          const trustHistory = await histRes.json();
+          const clients = await clientsRes.json();
+          const roundData = await roundRes.json();
+
+          $("roundBadge").textContent = "Round: " + (roundData.round ?? "-");
+          const tbody = $("clientsTbody");
+          tbody.innerHTML = "";
+
+          const clientIds = Object.keys(clients);
+          clientIds.forEach((cid) => {
+            const info = clients[cid];
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${cid}</td>
+              <td>${shortAddr(info.address)}</td>
+              <td>${info.trust}</td>
+              <td>${statusBadge(info.trust, info.blacklisted)}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+
+          renderChart(trustHistory);
+          $("log").textContent = "Refreshed at " + new Date().toLocaleTimeString();
+        } catch (e) {
+          $("log").textContent = "Error: " + e;
+        }
+      }
+
+      refresh();
+    </script>
+  </body>
+</html>
+

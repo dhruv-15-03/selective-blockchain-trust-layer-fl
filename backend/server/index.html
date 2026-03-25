@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TrustScore - Upwork Fraud Trust (AI + Blockchain Demo)</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #f8fafc; color: #0f172a; }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+      header { background: linear-gradient(180deg,#f1f5ff,white); border-bottom: 1px solid #e5e7eb; }
+      .hero { display: flex; gap: 18px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+      h1 { margin: 0; font-size: 34px; line-height: 1.1; letter-spacing: -0.02em; }
+      .lead { color: #475569; font-size: 16px; margin-top: 8px; max-width: 720px; }
+      .nav { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+      .btn { padding: 12px 16px; border-radius: 12px; border: 1px solid #dbeafe; background: white; cursor: pointer; font-weight: 700; color: #1d4ed8; }
+      .btn.primary { background: #1d4ed8; border-color: #1d4ed8; color: white; }
+      .btn:focus { outline: 3px solid rgba(29,78,216,.35); outline-offset: 2px; }
+      .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; margin-top: 18px; }
+      .card { grid-column: span 6; background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; }
+      .card.full { grid-column: 1 / -1; }
+      .card h2 { margin: 0 0 8px; font-size: 16px; color: #0f172a; }
+      .muted { color: #64748b; font-size: 13px; }
+      .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid #e5e7eb; background: #f1f5f9; font-size: 12px; font-weight: 700; color: #334155; }
+      code { background: #f1f5f9; padding: 2px 6px; border-radius: 8px; }
+      @media (max-width: 860px) { .card { grid-column: 1 / -1; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="hero">
+          <div>
+            <h1>TrustScore for Upwork Clients</h1>
+            <div class="lead">
+              ML-based “malicious participant” detection + on-chain TrustScore + blacklist.
+              Live demo UI to show how trust changes across rounds.
+            </div>
+            <div class="nav" role="navigation" aria-label="Main navigation">
+              <a class="btn primary" href="/upwork/create">Start Demo</a>
+              <a class="btn" href="/dashboard">Dashboard</a>
+              <a class="btn" href="/docs" target="_blank" rel="noreferrer">API Docs</a>
+            </div>
+          </div>
+          <div>
+            <div class="pill">FastAPI + Ganache</div>
+            <div class="muted" style="margin-top:12px;">
+              Demo runs at: <code>http://127.0.0.1:8000</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="grid">
+        <div class="card">
+          <h2>What you can show to judges</h2>
+          <div class="muted">
+            1) Honest participants keep trust high<br/>
+            2) Malicious participant gets flagged by ML gate<br/>
+            3) Server calls smart contract to penalize & blacklist<br/>
+            4) Dashboard shows trust evolution and risk status
+          </div>
+        </div>
+        <div class="card">
+          <h2>How to run (quick)</h2>
+          <div class="muted">
+            Step 1: Start backend server<br/>
+            Step 2: Start Ganache<br/>
+            Step 3: Run clients (client1, client2, client3, malicious_client)<br/>
+            Step 4: Click <b>Aggregate & View Results</b>
+          </div>
+        </div>
+        <div class="card full">
+          <h2>Important</h2>
+          <div class="muted">
+            Malicious trust drop is easiest when Ganache is fresh (or contract redeployed).<br/>
+            If malicious client is already blacklisted, just restart Ganache/contract for a clean demo.
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
+

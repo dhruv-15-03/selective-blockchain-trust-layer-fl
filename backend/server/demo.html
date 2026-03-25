@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TrustScore Demo - FL Clients (Blockchain)</title>
+    <style>
+      :root { color-scheme: light; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #ffffff; }
+      a { color: #1d4ed8; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      header { padding: 16px; border-bottom: 1px solid #e5e7eb; background: linear-gradient(180deg,#f8fafc,white); }
+      .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+      h1 { font-size: 20px; margin: 0 0 6px; }
+      .subtitle { color: #6b7280; font-size: 12px; margin-top: 6px; }
+      .row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+      .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; min-width: 320px; flex: 1; background: #fff; }
+      .muted { color: #6b7280; font-size: 12px; }
+      button { padding: 10px 12px; border-radius: 10px; border: 1px solid #d1d5db; background: white; cursor: pointer; }
+      button.primary { background: #2563eb; border-color: #2563eb; color: white; }
+      button:focus, a:focus { outline: 3px solid rgba(37,99,235,.35); outline-offset: 2px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border-bottom: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 13px; }
+      th { color: #374151; font-weight: 600; }
+      .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid; }
+      .low { color: #059669; border-color: #10b981; background: #ecfdf5; }
+      .medium { color: #b45309; border-color: #f59e0b; background: #fffbeb; }
+      .high { color: #b91c1c; border-color: #ef4444; background: #fef2f2; }
+      .blacklisted { color: #111827; border-color: #9ca3af; background: #f3f4f6; }
+      .chart-wrap { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; }
+      svg { width: 100%; height: 240px; }
+      .axis { stroke: #e5e7eb; stroke-width: 1; }
+      .grid { stroke: #f3f4f6; stroke-width: 1; }
+      .line { fill: none; stroke-width: 2; }
+      .legend { margin-top: 8px; display: flex; gap: 10px; flex-wrap: wrap; }
+      .legend-item { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; }
+      .log { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; white-space: pre-wrap; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; background: #fafafa; min-height: 46px; }
+      .top-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      .kv { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+      .kv .item { font-size: 13px; color: #111827; }
+      .kv .k { color: #6b7280; font-size: 12px; }
+      .table-wrap { overflow-x: auto; }
+      .steps { font-size: 13px; line-height: 1.55; }
+      .steps code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div style="max-width: 1200px; margin: 0 auto;">
+        <h1>TrustScore for Freelancing Trust (ML + Blockchain)</h1>
+        <div class="subtitle">
+          Live demo UI. Uses your running backend at <code>/</code> (API) and Ganache contract state.
+        </div>
+        <div class="kv" aria-label="Current status">
+          <div class="item"><span class="k">Server</span> <span>FastAPI</span></div>
+          <div class="item"><span class="k">Demo URL</span> <span><code>/demo</code></span></div>
+          <div class="item"><span class="k">API Docs</span> <span><a href="/docs" target="_blank" rel="noreferrer">/docs</a></span></div>
+          <div class="item"><span class="k">Round</span> <span id="roundBadge">-</span></div>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap" role="main">
+      <div class="row" style="margin-top: 0;">
+        <div class="card" style="min-width: 360px;">
+          <div class="top-actions">
+            <button class="primary" id="aggregateBtn" type="button" aria-label="Aggregate and move to next round">Aggregate (next round)</button>
+            <button id="refreshBtn" type="button">Refresh</button>
+            <span class="muted">Auto-refresh: <span id="autoState">ON</span></span>
+            <button id="toggleAutoBtn" type="button" title="Toggle auto refresh" aria-label="Toggle auto refresh">Toggle</button>
+          </div>
+          <div style="height: 10px;"></div>
+          <div class="log" id="actionLog" aria-live="polite">Ready.</div>
+          <div style="height: 10px;"></div>
+          <div class="steps muted" aria-label="How to run the demo">
+            <div><strong>Demo steps</strong></div>
+            <div style="margin-top:6px;">1. Run clients (terminals):</div>
+            <div><code>python -m backend.clients.client1</code>, <code>client2</code>, <code>client3</code>, <code>malicious_client</code></div>
+            <div style="margin-top:10px;">2. Click <strong>Aggregate</strong> to record one trust snapshot.</div>
+            <div style="margin-top:6px;">3. Malicious client trust should drop, and blacklist should flip.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin: 0 0 8px; font-size: 16px;">On-chain Trust (Ganache)</h2>
+          <div class="muted">Latest trust & blacklist for blockchain accounts.</div>
+          <div style="height: 10px;"></div>
+          <div class="table-wrap">
+            <table aria-label="On-chain accounts trust">
+              <thead>
+                <tr>
+                  <th>Address</th>
+                  <th>Trust</th>
+                  <th>Blacklist</th>
+                </tr>
+              </thead>
+              <tbody id="accountsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card">
+          <h2 style="margin: 0 0 8px; font-size: 16px;">Trust Evolution (per client)</h2>
+          <div class="muted">Each click of <code>Aggregate</code> records one trust snapshot.</div>
+          <div style="height: 10px;"></div>
+          <div class="chart-wrap">
+            <svg id="trustChart" viewBox="0 0 800 240" preserveAspectRatio="none" aria-label="Trust evolution chart"></svg>
+            <div class="legend" id="legend" aria-label="Chart legend"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin: 0 0 8px; font-size: 16px;">Risk Levels</h2>
+          <div class="muted">Latest trust + blacklist for <code>client_*</code> participants.</div>
+          <div style="height: 10px;"></div>
+          <div class="table-wrap">
+            <table aria-label="Risk table">
+              <thead>
+                <tr>
+                  <th>Client</th>
+                  <th>Address</th>
+                  <th>Latest Trust</th>
+                  <th>Risk</th>
+                </tr>
+              </thead>
+              <tbody id="riskTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      const COLORS = [
+        "#2563eb", "#7c3aed", "#059669", "#dc2626", "#d97706", "#0ea5e9"
+      ];
+
+      function setLog(msg) {
+        $("actionLog").textContent = msg;
+      }
+
+      function shortAddr(addr) {
+        if (!addr) return "-";
+        return String(addr).slice(0, 10) + "..." + String(addr).slice(-6);
+      }
+
+      function riskBadge(trust) {
+        if (trust === null || trust === undefined) return `<span class="badge blacklisted">N/A</span>`;
+        if (trust <= 0) return `<span class="badge high">Blacklisted</span>`;
+        if (trust < 40) return `<span class="badge high">High</span>`;
+        if (trust < 80) return `<span class="badge medium">Medium</span>`;
+        return `<span class="badge low">Low</span>`;
+      }
+
+      function clearSvg(svg) {
+        while (svg.firstChild) svg.removeChild(svg.firstChild);
+      }
+
+      function renderChart(trustHistory) {
+        const svg = $("trustChart");
+        clearSvg(svg);
+
+        const clientIds = Object.keys(trustHistory || {});
+        if (clientIds.length === 0) {
+          const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          t.setAttribute("x", "24");
+          t.setAttribute("y", "120");
+          t.setAttribute("fill", "#6b7280");
+          t.textContent = "No trust history yet. Run clients and click Aggregate.";
+          svg.appendChild(t);
+          $("legend").innerHTML = "";
+          return;
+        }
+
+        const maxRounds = Math.max(...clientIds.map(cid => trustHistory[cid].length), 1);
+
+        const W = 800;
+        const H = 240;
+        const padL = 48;
+        const padR = 20;
+        const padT = 18;
+        const padB = 34;
+
+        const plotW = W - padL - padR;
+        const plotH = H - padT - padB;
+
+        // Determine y range
+        const yMin = 0;
+        const yMax = 100; // TrustScore in contract: bounded ~0..100
+
+        function xAt(i) {
+          return padL + (maxRounds === 1 ? plotW / 2 : (i / (maxRounds - 1)) * plotW);
+        }
+        function yAt(v) {
+          const t = (v - yMin) / (yMax - yMin);
+          return padT + (1 - t) * plotH;
+        }
+
+        // Grid lines
+        for (let k = 0; k <= 4; k++) {
+          const y = padT + (k / 4) * plotH;
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          line.setAttribute("x1", padL);
+          line.setAttribute("x2", padL + plotW);
+          line.setAttribute("y1", y);
+          line.setAttribute("y2", y);
+          line.setAttribute("class", "grid");
+          svg.appendChild(line);
+        }
+
+        // Axes
+        const axisX = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        axisX.setAttribute("x1", padL);
+        axisX.setAttribute("x2", padL + plotW);
+        axisX.setAttribute("y1", padT + plotH);
+        axisX.setAttribute("y2", padT + plotH);
+        axisX.setAttribute("class", "axis");
+        svg.appendChild(axisX);
+
+        const axisY = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        axisY.setAttribute("x1", padL);
+        axisY.setAttribute("x2", padL);
+        axisY.setAttribute("y1", padT);
+        axisY.setAttribute("y2", padT + plotH);
+        axisY.setAttribute("class", "axis");
+        svg.appendChild(axisY);
+
+        // Legend + lines
+        const legend = $("legend");
+        legend.innerHTML = "";
+
+        clientIds.forEach((cid, idx) => {
+          const color = COLORS[idx % COLORS.length];
+          const vals = trustHistory[cid];
+
+          const points = vals.map((v, i) => `${xAt(i)},${yAt(v)}`).join(" ");
+          const pl = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+          pl.setAttribute("points", points);
+          pl.setAttribute("class", "line");
+          pl.setAttribute("stroke", color);
+          svg.appendChild(pl);
+
+          // endpoint marker
+          if (vals.length > 0) {
+            const last = vals[vals.length - 1];
+            const lastIdx = vals.length - 1;
+            const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            c.setAttribute("cx", xAt(lastIdx));
+            c.setAttribute("cy", yAt(last));
+            c.setAttribute("r", "4");
+            c.setAttribute("fill", color);
+            svg.appendChild(c);
+          }
+
+          const li = document.createElement("div");
+          li.className = "legend-item";
+          li.innerHTML = `<span class="dot" style="background:${color}"></span><span>${cid}</span>`;
+          legend.appendChild(li);
+        });
+      }
+
+      function renderRisk(trustHistory, clientsSnapshot) {
+        const tbody = $("riskTbody");
+        tbody.innerHTML = "";
+
+        const clientIds = Object.keys(trustHistory || {});
+        clientIds.sort();
+
+        // Prefer latest on-chain snapshot when available.
+        for (const cid of clientIds) {
+          const tr = document.createElement("tr");
+          const tdClient = document.createElement("td"); tdClient.textContent = cid;
+
+          const snap = clientsSnapshot ? clientsSnapshot[cid] : null;
+          const address = snap && snap.address ? snap.address : "-";
+          const trust = snap && typeof snap.trust === "number" ? snap.trust : null;
+          const blacklisted = snap && typeof snap.blacklisted === "boolean" ? snap.blacklisted : false;
+
+          const tdAddr = document.createElement("td"); tdAddr.textContent = shortAddr(address);
+          const tdTrust = document.createElement("td"); tdTrust.textContent = trust === null ? "N/A" : trust;
+
+          let riskHtml = riskBadge(trust);
+          if (blacklisted) {
+            riskHtml = `<span class="badge blacklisted">Blacklisted</span>`;
+          }
+
+          const tdRisk = document.createElement("td"); tdRisk.innerHTML = riskHtml;
+
+          tr.appendChild(tdClient);
+          tr.appendChild(tdAddr);
+          tr.appendChild(tdTrust);
+          tr.appendChild(tdRisk);
+          tbody.appendChild(tr);
+        }
+      }
+
+      async function refresh() {
+        try {
+          const [histRes, accRes, clientsRes, roundRes] = await Promise.all([
+            fetch("/trust_history"),
+            fetch("/ganache_accounts_trust?limit=8"),
+            fetch("/current_trust"),
+            fetch("/get_global_model"),
+          ]);
+
+          const trustHistory = await histRes.json();
+          const accounts = await accRes.json();
+          const clientsSnapshot = await clientsRes.json();
+          const roundData = await roundRes.json();
+
+          // accounts table
+          const tbody = $("accountsTbody");
+          tbody.innerHTML = "";
+          for (const [addr, info] of Object.entries(accounts)) {
+            const tr = document.createElement("tr");
+
+            const td1 = document.createElement("td"); td1.textContent = addr;
+            const td2 = document.createElement("td"); td2.textContent = info.trust;
+            const td3 = document.createElement("td");
+            const badgeClass = info.blacklisted ? "blacklisted" : (info.trust < 40 ? "high" : info.trust < 80 ? "medium" : "low");
+            td3.innerHTML = `<span class="badge ${badgeClass}">${info.blacklisted ? "Blacklisted" : "Active"}</span>`;
+
+            tr.appendChild(td1);
+            tr.appendChild(td2);
+            tr.appendChild(td3);
+            tbody.appendChild(tr);
+          }
+
+          renderChart(trustHistory);
+          // Current trust endpoint returns {client_id: {trust, blacklisted}}
+          // but may not include address. We'll still render risk properly.
+          renderRisk(trustHistory, clientsSnapshot);
+
+          $("roundBadge").textContent = roundData && typeof roundData.round === "number" ? roundData.round : "-";
+
+          setLog(`Last refreshed: ${new Date().toLocaleTimeString()}`);
+        } catch (e) {
+          setLog("Error fetching demo data. Is the backend running?");
+          console.error(e);
+        }
+      }
+
+      let autoOn = true;
+      let intervalId = null;
+
+      function startAuto() {
+        if (intervalId) clearInterval(intervalId);
+        intervalId = setInterval(() => {
+          if (autoOn) refresh();
+        }, 2500);
+      }
+
+      $("refreshBtn").addEventListener("click", () => refresh());
+      $("aggregateBtn").addEventListener("click", async () => {
+        try {
+          setLog("Calling /aggregate ...");
+          await fetch("/aggregate", { method: "POST" });
+          await refresh();
+        } catch (e) {
+          setLog("Aggregate failed. Check terminal logs.");
+          console.error(e);
+        }
+      });
+
+      $("toggleAutoBtn").addEventListener("click", () => {
+        autoOn = !autoOn;
+        $("autoState").textContent = autoOn ? "ON" : "OFF";
+        if (autoOn) refresh();
+      });
+
+      refresh();
+      startAuto();
+    </script>
+  </body>
+</html>
+

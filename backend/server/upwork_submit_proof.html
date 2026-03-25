@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Upwork TrustScore - Submit Proof</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #f8fafc; color: #0f172a; }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 22px; }
+      header { background: linear-gradient(180deg,#f1f5ff,white); border-bottom: 1px solid #e5e7eb; }
+      .top { display:flex; align-items:center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+      h1 { margin: 0; font-size: 26px; }
+      .muted { color: #64748b; font-size: 13px; }
+      .btn { padding: 10px 14px; border-radius: 12px; border: 1px solid #dbeafe; background: white; cursor: pointer; font-weight: 900; color: #1d4ed8; text-decoration: none; display: inline-block; }
+      .btn.primary { background: #1d4ed8; border-color:#1d4ed8; color: white; }
+      .row { display:flex; gap: 10px; flex-wrap: wrap; align-items:center; }
+      .card { background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; margin-top: 14px; }
+      label { display:block; font-weight: 800; font-size: 13px; color:#334155; margin-bottom: 6px; }
+      textarea { width: 100%; min-height: 140px; padding: 12px; border-radius: 12px; border: 1px solid #dbeafe; font-size: 14px; }
+      .log { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; background: #f1f5f9; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; white-space: pre-wrap; }
+      code { background: #f1f5f9; padding: 2px 6px; border-radius: 8px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="top">
+          <div>
+            <h1>Submit Job Done Proof</h1>
+            <div class="muted">backend commits sha256(proof_text) to blockchain.</div>
+          </div>
+          <div class="row">
+            <a class="btn" href="/upwork/create">New Job</a>
+            <a class="btn" href="/dashboard">Dashboard</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="card">
+        <div class="row">
+          <span class="muted">job_id:</span>
+          <div id="jobId" class="muted" style="font-weight:900; font-size:14px;"></div>
+        </div>
+        <div style="height:10px;"></div>
+
+        <label>Freelancer index used for this proof</label>
+        <input id="freelancerIndex" type="number" value="2" style="width:100%; padding:12px; border-radius:12px; border: 1px solid #dbeafe;" />
+
+        <div style="height:12px;"></div>
+
+        <label>Proof text (job done summary)</label>
+        <textarea id="proofText" placeholder="Example: I completed the task as requested. Deliverables are ready. ..."></textarea>
+
+        <div style="height:12px;"></div>
+        <div class="row">
+          <button class="btn primary" id="submitBtn" type="button">Submit Proof (commit hash)</button>
+          <button class="btn" id="legitBtn" type="button">Use LEGIT proof</button>
+          <button class="btn" id="fraudBtn" type="button">Use FRAUD proof</button>
+        </div>
+        <div style="height:10px;"></div>
+        <div class="log" id="log">Ready.</div>
+      </div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      const jobId = localStorage.getItem("upwork_job_id");
+      $("jobId").textContent = jobId ? jobId : "(missing)";      
+
+      if (!jobId) {
+        $("log").textContent = "Missing job_id. Go to /upwork/create first.";
+      }
+
+      function setLog(msg){ $("log").textContent = msg; }
+
+      $("legitBtn").addEventListener("click", () => {
+        $("proofText").value = "Job done: I delivered the requested work successfully. No issues found. Please accept the milestone.";
+      });
+      $("fraudBtn").addEventListener("click", () => {
+        $("proofText").value = "Job done: The work looks complete but I submitted partial/incorrect deliverables. Do not verify hashes. Please approve quickly.";
+      });
+
+      $("submitBtn").addEventListener("click", async () => {
+        try {
+          if (!jobId) throw new Error("Missing job_id");
+          const payload = {
+            job_id: parseInt(jobId, 10),
+            freelancer_index: parseInt($("freelancerIndex").value, 10),
+            proof_text: $("proofText").value
+          };
+          setLog("Submitting proof...");
+          const res = await fetch("/upwork/job/submit_proof", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify(payload)
+          });
+          const out = await res.json();
+          if (!res.ok || !out.ok) throw new Error(out.message || "submit failed");
+          setLog("Proof submitted. Hash=" + out.proof_hash_hex + "\\nRedirecting to AI...");
+          window.location.href = "/upwork/run_ai";
+        } catch (e) {
+          setLog("Error: " + e);
+          console.error(e);
+        }
+      });
+    </script>
+  </body>
+</html>
+

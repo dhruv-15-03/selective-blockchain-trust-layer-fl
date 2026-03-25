@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Upwork TrustScore - Create Job</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #f8fafc; color: #0f172a; }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 22px; }
+      header { background: linear-gradient(180deg,#f1f5ff,white); border-bottom: 1px solid #e5e7eb; }
+      .top { display:flex; align-items:center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+      h1 { margin: 0; font-size: 26px; }
+      .muted { color: #64748b; font-size: 13px; }
+      .btn { padding: 10px 14px; border-radius: 12px; border: 1px solid #dbeafe; background: white; cursor: pointer; font-weight: 900; color: #1d4ed8; text-decoration: none; display: inline-block; }
+      .btn.primary { background: #1d4ed8; border-color:#1d4ed8; color: white; }
+      .btn:focus { outline: 3px solid rgba(29,78,216,.35); outline-offset: 2px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+      @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+      .card { background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; box-shadow: 0 1px 0 rgba(15,23,42,.04); }
+      label { display:block; font-weight: 800; font-size: 13px; color:#334155; margin-bottom: 6px; }
+      input, select, textarea { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid #dbeafe; background: #fff; font-size: 14px; }
+      textarea { min-height: 120px; }
+      .row { display:flex; gap: 10px; flex-wrap: wrap; align-items:center; }
+      .log { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; background: #f1f5f9; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; white-space: pre-wrap; }
+      .pill { display:inline-block; padding:4px 10px; border-radius:999px; border:1px solid #e5e7eb; background:#f1f5f9; font-weight:900; font-size:12px; color:#334155; }
+      .stepper { display:flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+      .step { display:flex; align-items:center; gap:10px; }
+      .dot {
+        width: 34px; height: 34px; border-radius: 12px;
+        display:inline-flex; align-items:center; justify-content:center;
+        font-weight: 1000; border: 1px solid #e5e7eb; background: #f1f5f9; color:#334155;
+      }
+      .step.active .dot { background: #1d4ed8; border-color:#1d4ed8; color:white; }
+      .step.done .dot { background: #059669; border-color:#10b981; color:white; }
+      .step .name { font-weight: 900; font-size: 13px; color:#334155; }
+      .hint { font-size: 12px; color:#6b7280; margin-top: 6px; }
+      .inlineActions { display:flex; gap:10px; flex-wrap: wrap; align-items:center; }
+      .tableish { border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; background: #fff; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="top">
+          <div>
+            <h1>Create Upwork Job</h1>
+            <div class="muted">Proof → AI Risk → Approve/Dispute → Results (on-chain commitments)</div>
+            <div class="stepper" aria-label="Workflow steps">
+              <div class="step active"><span class="dot">1</span><span class="name">Create</span></div>
+              <div class="step"><span class="dot">2</span><span class="name">Submit Proof</span></div>
+              <div class="step"><span class="dot">3</span><span class="name">Run AI</span></div>
+              <div class="step"><span class="dot">4</span><span class="name">Decision</span></div>
+            </div>
+          </div>
+          <div class="row">
+            <a class="btn" href="/dashboard">Dashboard</a>
+            <a class="btn" href="/">Home</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="grid">
+        <div class="card">
+          <div class="row">
+            <span class="pill">Step 1</span>
+            <span class="muted">Create job on-chain commitments</span>
+          </div>
+          <div style="height:10px;"></div>
+
+          <label>Client (client_index)</label>
+          <select id="clientIndex">
+            <option value="1" selected>client_index=1 (client_1)</option>
+            <option value="2">client_index=2 (client_2)</option>
+            <option value="3">client_index=3 (client_3)</option>
+          </select>
+
+          <div style="height:12px;"></div>
+
+          <label>Freelancer (freelancer_index)</label>
+          <select id="freelancerIndex">
+            <option value="2" selected>freelancer_index=2 (freelancer role)</option>
+            <option value="4">freelancer_index=4 (malicious role)</option>
+          </select>
+
+          <div style="height:12px;"></div>
+
+          <label>Amount (demo)</label>
+          <input id="amount" type="number" step="1" value="100" />
+
+          <div style="height:12px;"></div>
+
+          <label>Deadline hours (demo)</label>
+          <input id="deadlineHours" type="number" step="0.01" value="0.01" />
+
+          <div style="height:14px;"></div>
+          <div class="row">
+            <button class="btn primary" id="createBtn" type="button">Create Job</button>
+            <button class="btn" id="clearBtn" type="button">Clear Stored job_id</button>
+          </div>
+          <div style="height:10px;"></div>
+          <div class="log" id="log">Ready.</div>
+        </div>
+
+        <div class="card">
+          <div class="row">
+            <span class="pill">Live Job Preview</span>
+          </div>
+          <div style="height:8px;"></div>
+          <div class="muted" style="font-size:14px; line-height:1.6;">
+            <b>After “Create Job”:</b><br/>
+            1) Redirect to <code>/upwork/submit_proof</code><br/>
+            2) Backend commits <code>sha256(proof_text)</code> on-chain<br/>
+            3) Backend runs AI risk + commits AI hash<br/>
+            4) Decision updates TrustScore + blacklist
+          </div>
+
+          <div style="height:14px;"></div>
+
+          <label style="margin-bottom:6px;">Stored job_id (browser)</label>
+          <div class="log" style="margin-top:6px;" aria-live="polite">
+            <div id="storedJobId">(none yet)</div>
+            <div style="height:10px;"></div>
+            <div class="inlineActions">
+              <button class="btn" id="copyBtn" type="button" style="padding:8px 12px;">Copy job_id</button>
+              <a class="btn" href="/upwork/submit_proof" id="goProofBtn" style="padding:8px 12px; display:inline-block; opacity:.65; pointer-events:none;">Go to Proof</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      function setLog(msg) { $("log").textContent = msg; }
+      function clearJobId() { localStorage.removeItem("upwork_job_id"); }
+
+      $("clearBtn").addEventListener("click", () => { clearJobId(); setLog("Cleared job_id."); });
+
+      function updateStoredUI() {
+        const jobId = localStorage.getItem("upwork_job_id");
+        $("storedJobId").textContent = jobId ? String(jobId) : "(none yet)";
+        const enabled = !!jobId;
+        $("goProofBtn").style.opacity = enabled ? "1" : ".65";
+        $("goProofBtn").style.pointerEvents = enabled ? "auto" : "none";
+        $("copyBtn").disabled = !enabled;
+      }
+
+      $("copyBtn").addEventListener("click", async () => {
+        const jobId = localStorage.getItem("upwork_job_id");
+        if (!jobId) return;
+        try {
+          await navigator.clipboard.writeText(String(jobId));
+          setLog("Copied job_id: " + jobId);
+        } catch (e) {
+          setLog("Copy failed. job_id=" + jobId);
+        }
+      });
+
+      updateStoredUI();
+
+      $("createBtn").addEventListener("click", async () => {
+        try {
+          $("createBtn").disabled = true;
+          setLog("Creating job...");
+          const payload = {
+            client_index: parseInt($("clientIndex").value, 10),
+            freelancer_index: parseInt($("freelancerIndex").value, 10),
+            amount: parseFloat($("amount").value),
+            deadline_hours: parseFloat($("deadlineHours").value)
+          };
+          const res = await fetch("/upwork/job/create", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+          });
+          const out = await res.json();
+          if (!res.ok || !out.job_id) throw new Error(out.message || "Create failed");
+          localStorage.setItem("upwork_job_id", String(out.job_id));
+          setLog("Job created. job_id=" + out.job_id + " state=" + out.state + "\\nRedirecting...");
+          updateStoredUI();
+          window.location.href = "/upwork/submit_proof";
+        } catch (e) {
+          setLog("Error: " + e);
+          console.error(e);
+        } finally {
+          $("createBtn").disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
+
