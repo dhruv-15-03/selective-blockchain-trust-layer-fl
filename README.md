@@ -1,98 +1,78 @@
-🚀 Selective Blockchain Trust Layer for Freelancing
-🌍 The Story Behind This Project
+Hi there! I'm Ayush Bisht 🚀
 
-Meet Raj.
+I’m a Computer Science student at Meerut Institute of Engineering and Technology.
 
-Raj is a freelance developer. He spends nights building projects, meeting deadlines, and delivering quality work. One day, he completes a project for a client.
+🌍 Project: Selective Blockchain Trust Layer for Freelancing
+💡 The Story
 
-But then…
+Meet Raj, a freelance developer.
 
-The client disappears ❌
-Payment is never made ❌
-Proof of work is questioned ❌
+He works hard, delivers projects… but sometimes:
+❌ Clients disappear
+❌ Payments are never made
+❌ Proof of work is questioned
 
-Raj has screenshots, chats, commits — but none of it is trusted enough.
+On the flip side:
+❌ Fake freelancer profiles
+❌ Poor quality work
+❌ Manipulated reviews
 
-Now flip the situation.
-
-Another day, Raj is hiring a freelancer. The profile looks perfect — 5⭐ ratings, great reviews. But after hiring:
-
-Work quality is poor ❌
-Deadlines are missed ❌
-Reviews turn out to be fake ❌
-
-Raj loses both money and trust.
+👉 Result? Trust breaks from both sides.
 
 ❗ The Bigger Problem
 
-Raj is not alone.
+Freelancing platforms today suffer from:
 
-Freelancing platforms today face serious trust issues:
+💸 Payment fraud
+🤖 Fake reviews (20–30% estimated)
+⚖️ Hard-to-resolve disputes
+🏢 Centralized, opaque trust systems
 
-💸 Millions lost in freelance fraud every year
-🤖 Fake reviews and manipulated ratings are common
-⚖️ Disputes are hard to resolve due to lack of verifiable proof
-🏢 Centralized systems control trust → can be biased or opaque
-📊 Reality Check
-Around 30–40% of freelancers report payment-related issues at least once
-A significant portion of online reviews (~20–30%) are estimated to be fake
-Trust remains one of the top 3 challenges in the gig economy
+📊 Reality:
 
-👉 Current systems solve only ~50–60% of trust problems
-👉 The rest still depends on blind belief
-
+30–40% freelancers face payment issues
+Current systems solve only 50–60% trust problems
 💡 Our Solution
+🚀 Selective Blockchain Trust Layer
 
-Selective Blockchain Trust Layer changes this completely.
+Instead of blind trust →
+👉 Verify → Analyze → Then Trust
 
-Instead of forcing users to blindly trust, it enables them to:
-
-🔍 Verify → Analyze → Then Trust
-
-⚙️ How Raj’s Problem Gets Solved
-
-With this system:
-
-✅ When Raj completes work
-Work proof is stored on blockchain
-Immutable record → cannot be denied
-Payment disputes become traceable
-✅ When Raj hires someone
-He sees:
-Real trust score
-Verified transaction history
-Risk indicators
-✅ If something goes wrong
-Dispute is logged transparently
-Evidence is already recorded
-Resolution becomes data-driven
+⚙️ How It Solves the Problem
+👨‍💻 For Freelancers (Raj)
+✅ Work proof stored on blockchain
+✅ Immutable records
+✅ Payment disputes become traceable
+🧑‍💼 For Clients
+✅ Real trust scores
+✅ Verified transaction history
+✅ Risk indicators
+⚖️ Dispute Handling
+Transparent logs
+Blockchain-backed evidence
+Data-driven resolution
 ✨ Core Features
-🔐 Trust Score System
-Dynamic scoring based on real activity, not just ratings
-🧠 Anomaly Detection
-Detects suspicious users and fraud patterns
-🎯 Selective Trust Mechanism
-Users decide whom to trust based on actual data
+🔐 Trust Score System – dynamic & activity-based
+🧠 Anomaly Detection – fraud detection
+🎯 Selective Trust Mechanism – user-controlled trust
 ⚖️ Transparent Dispute Resolution
-Blockchain-backed evidence system
 ⛓️ Immutable Records
-No tampering, no fake proofs
 🛠️ Tech Stack
-Backend: FastAPI (Python)
-Frontend: React.js
-Blockchain: Solidity + Ganache
-Web3 Integration: Web3.js
-Database: MySQL
-DevOps: Docker
+⚙️ Backend: FastAPI (Python)
+🎨 Frontend: React.js
+⛓️ Blockchain: Solidity + Ganache
+🔗 Web3: Web3.js
+🗄️ Database: MySQL
+🐳 DevOps: Docker
 📁 Project Structure
 Selective-Blockchain-Trust-Layer/
 │
-├── backend/        # FastAPI backend
-├── frontend/       # React frontend
-├── blockchain/     # Smart contracts (Solidity)
-├── docker/         # Container setup
+├── backend/        
+├── frontend/       
+├── blockchain/     
+├── docker/         
 └── README.md
-⚙️ Setup (Quick Start)
+⚙️ Quick Start
 Backend
 cd backend
 pip install -r requirements.txt
@@ -106,28 +86,26 @@ cd frontend
 npm install
 npm start
 💼 Real-World Use Cases
-Freelancer gets paid securely
-Clients avoid fake profiles
-Platforms reduce fraud
-Disputes become transparent
+💰 Freelancers get secure payments
+🔍 Clients avoid fake profiles
+🏢 Platforms reduce fraud
+⚖️ Transparent dispute resolution
 📊 Impact Vision
 
-This project aims to:
+🎯 Goal: Solve 80%+ trust issues in freelancing
 
-Reduce freelance fraud significantly
-Improve trust transparency
+Reduce fraud
+Improve transparency
 Eliminate fake reputation systems
-
-👉 Goal: Solve 80%+ trust issues in freelancing ecosystems
-
 🤝 Contribution
 
-Feel free to fork, improve, and contribute.
+Feel free to contribute 🚀
 
 git checkout -b feature/your-feature
 📬 Contact
 
 Ayush Bisht
+
 📧 ayushbisht0902@gmail.com
 
 🌐 https://ayushbisht.me
@@ -138,3 +116,13 @@ Ayush Bisht
 
 Trust should not be assumed.
 It should be verified.
+
+🧠 About Me
+🔭 Working on App Development
+🌱 Learning App Development & DSA
+💡 Love exploring new tech
+🛠️ Languages & Tools
+
+aws azure bash c css3 docker express git html5 java javascript linux
+materialize mongodb mysql nextjs nodejs postman python react
+tailwind typescript wx_widgets
