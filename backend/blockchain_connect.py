@@ -13,7 +13,7 @@ except Exception:
     pass
 
 # Contract Address (your deployed contract)
-contract_address = to_checksum_address("0xf116513b6B713972164F9669276F330BEf9BA30a")
+contract_address = to_checksum_address("0x5FbDB2315678afecb367f032d93F642f64180aa3")
 
 # ABI (paste your full ABI here)
 abi = [
@@ -244,6 +244,64 @@ abi = [
       ],
       "stateMutability": "view",
       "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "client",
+          "type": "address"
+        }
+      ],
+      "name": "rewardClient",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "REWARD",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_TRUST",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "client",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newTrust",
+          "type": "uint256"
+        }
+      ],
+      "name": "ClientRewarded",
+      "type": "event"
     }
   
 ]

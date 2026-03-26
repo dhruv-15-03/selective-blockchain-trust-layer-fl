@@ -17,7 +17,7 @@ except Exception as e:
 w3.eth.default_account = w3.eth.accounts[0]
 
 # 🔹 Replace with your deployed contract address
-contract_address = to_checksum_address("0xf58D411D133F0Cd384421FC717B443BDc00A6DD5")
+contract_address = to_checksum_address("0x5FbDB2315678afecb367f032d93F642f64180aa3")
 
 # 🔹 Paste your ABI here (copy from trustLayer.json)
 abi = [
@@ -248,6 +248,64 @@ abi = [
       ],
       "stateMutability": "view",
       "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "client",
+          "type": "address"
+        }
+      ],
+      "name": "rewardClient",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "REWARD",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_TRUST",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "anonymous": False,
+      "inputs": [
+        {
+          "indexed": False,
+          "internalType": "address",
+          "name": "client",
+          "type": "address"
+        },
+        {
+          "indexed": False,
+          "internalType": "uint256",
+          "name": "newTrust",
+          "type": "uint256"
+        }
+      ],
+      "name": "ClientRewarded",
+      "type": "event"
     }
 ] 
 
