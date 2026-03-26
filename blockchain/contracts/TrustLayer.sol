@@ -12,11 +12,14 @@ contract TrustLayer {
     uint256 public constant INITIAL_TRUST = 100;
     uint256 public constant PENALTY = 20;
     uint256 public constant THRESHOLD = 40;
+    uint256 public constant REWARD = 5;
+    uint256 public constant MAX_TRUST = 120;
 
     event ClientRegistered(address client);
     event HashSubmitted(address client, uint256 round, bytes32 hash);
     event TrustUpdated(address client, uint256 newTrust);
     event Blacklisted(address client);
+    event ClientRewarded(address client, uint256 newTrust);
 
     constructor() {
         owner = msg.sender;
@@ -57,6 +60,20 @@ contract TrustLayer {
             blacklisted[client] = true;
             emit Blacklisted(client);
         }
+    }
+
+    function rewardClient(address client) public onlyOwner {
+        require(trustScore[client] > 0, "Client not registered");
+        require(!blacklisted[client], "Client blacklisted");
+
+        uint256 newTrust = trustScore[client] + REWARD;
+        if (newTrust > MAX_TRUST) {
+            newTrust = MAX_TRUST;
+        }
+        trustScore[client] = newTrust;
+
+        emit ClientRewarded(client, newTrust);
+        emit TrustUpdated(client, newTrust);
     }
 
     function getTrust(address client) public view returns (uint256) {
