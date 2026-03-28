@@ -112,6 +112,7 @@ export const api = {
   // Worker Score
   worker: {
     score: (userId) => fetchApi(`/worker/score/${userId}`),
+    milestoneHistory: (userId) => fetchApi(`/worker/${userId}/milestone_history`),
   },
 
   // AI Analysis
