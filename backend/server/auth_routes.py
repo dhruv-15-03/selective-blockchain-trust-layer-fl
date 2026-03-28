@@ -1,3 +1,5 @@
+from typing import Literal, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -12,7 +14,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 class SignUpRequest(BaseModel):
     email: EmailStr
     password: str
-    name: str | None = None
+    name: Optional[str] = None
+    role: Literal["freelancer", "client"]
 
 
 class LoginRequest(BaseModel):
@@ -29,12 +32,17 @@ def signup(req: SignUpRequest, db: Session = Depends(get_db)):
         email=req.email,
         password_hash=hash_password(req.password),
         name=req.name or None,
+        role=req.role,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    token = create_token({"sub": str(user.id), "email": user.email})
-    return {"ok": True, "token": token, "user": {"id": user.id, "email": user.email, "name": user.name}}
+    token = create_token({"sub": str(user.id), "email": user.email, "role": user.role})
+    return {
+        "ok": True,
+        "token": token,
+        "user": {"id": user.id, "email": user.email, "name": user.name, "role": user.role},
+    }
 
 
 @router.post("/login")
@@ -42,5 +50,9 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email).first()
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    token = create_token({"sub": str(user.id), "email": user.email})
-    return {"ok": True, "token": token, "user": {"id": user.id, "email": user.email, "name": user.name}}
+    token = create_token({"sub": str(user.id), "email": user.email, "role": user.role})
+    return {
+        "ok": True,
+        "token": token,
+        "user": {"id": user.id, "email": user.email, "name": user.name, "role": user.role},
+    }

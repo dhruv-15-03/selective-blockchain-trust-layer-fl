@@ -1,15 +1,28 @@
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-async function parseJson(res) {
-  const text = await res.text();
+function parseResponseBody(text, res) {
   if (!text) {
-    throw new Error(`Empty response (status ${res.status}). Backend running at http://127.0.0.1:8000?`);
+    throw new Error(
+      `Empty response (HTTP ${res.status}). Is the backend running at http://127.0.0.1:8000?`
+    );
   }
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error(`Invalid JSON: ${text.slice(0, 150)}`);
+    throw new Error(text.slice(0, 200) || `HTTP ${res.status} ${res.statusText}`);
   }
+}
+
+async function parseJson(res) {
+  const text = await res.text();
+  const data = parseResponseBody(text, res);
+  if (!res.ok) {
+    const d = data?.detail;
+    if (Array.isArray(d)) throw new Error(d.map((x) => x.msg || String(x)).join(', '));
+    if (typeof d === 'string') throw new Error(d);
+    throw new Error(JSON.stringify(data));
+  }
+  return data;
 }
 
 async function fetchApi(path, options = {}) {
@@ -26,7 +39,15 @@ async function postJson(path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  return parseJson(res);
+  const text = await res.text();
+  const data = parseResponseBody(text, res);
+  if (!res.ok) {
+    const d = data?.detail;
+    if (Array.isArray(d)) throw new Error(d.map((x) => x.msg || String(x)).join(', '));
+    if (typeof d === 'string') throw new Error(d);
+    throw new Error(typeof data?.message === 'string' ? data.message : JSON.stringify(data));
+  }
+  return data;
 }
 
 export const api = {

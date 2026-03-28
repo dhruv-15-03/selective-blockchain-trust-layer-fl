@@ -1,0 +1,302 @@
+/* Earth texture: Three.js example asset (public demo texture) */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 2rem 1rem;
+}
+
+.login-page__bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 100%, rgba(14, 165, 233, 0.12), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(34, 197, 94, 0.06), transparent 50%),
+    #020617;
+}
+
+/* Rotating Earth — behind form */
+.login-page__earth-wrap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -48%);
+  width: min(120vmin, 820px);
+  aspect-ratio: 1;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-page__earth-glow {
+  position: absolute;
+  inset: -8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.22) 0%, transparent 65%);
+  filter: blur(24px);
+  opacity: 0.85;
+}
+
+.login-page__earth {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow:
+    inset -48px 0 90px rgba(0, 0, 0, 0.78),
+    inset 28px 0 50px rgba(255, 255, 255, 0.06),
+    0 0 100px rgba(14, 165, 233, 0.18),
+    0 0 1px rgba(125, 211, 252, 0.35);
+}
+
+.login-page__earth-surface {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-color: #0c4a6e;
+  background-image: url('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
+  background-repeat: repeat-x;
+  background-position: 0 50%;
+  /* Double width so one full 0→100% pan = one seamless globe rotation */
+  background-size: 200% 100%;
+  animation: login-earth-spin 90s linear infinite;
+}
+
+@keyframes login-earth-spin {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-page__earth-surface {
+    animation: none;
+  }
+}
+
+/* Readability over Earth */
+.login-page__vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 50% at 50% 50%, rgba(2, 6, 23, 0.35) 0%, rgba(2, 6, 23, 0.82) 70%, rgba(2, 6, 23, 0.95) 100%);
+}
+
+.login-page__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 45%, black 25%, transparent 72%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-shell {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.login-brand {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  letter-spacing: -0.03em;
+  text-shadow: 0 1px 24px rgba(14, 165, 233, 0.25);
+}
+
+.login-badge {
+  font-size: 0.65rem;
+  color: #7dd3fc;
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+.login-card {
+  padding: 2rem;
+  border-radius: 22px;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(18px);
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.login-card h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+}
+
+.login-card__lead {
+  margin: 0 0 1.5rem;
+  font-size: 0.95rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.login-form label {
+  color: #cbd5e1;
+}
+
+.login-form input {
+  border-color: rgba(56, 189, 248, 0.2);
+  background: rgba(2, 6, 23, 0.45);
+}
+
+.login-form input:focus {
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+}
+
+.login-error {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #fca5a5;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+/* CTA — same size as global .btn, ocean / sky gradient */
+.login-card .btn.btn-primary.login-submit {
+  background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 55%, #38bdf8 100%);
+  box-shadow: 0 4px 22px rgba(14, 165, 233, 0.38);
+  border: 1px solid rgba(125, 211, 252, 0.25);
+}
+
+.login-card .btn.btn-primary.login-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(14, 165, 233, 0.45);
+}
+
+.login-card .btn.btn-primary.login-submit:disabled {
+  opacity: 0.75;
+}
+
+.login-footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.login-footer a {
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+.login-footer a:hover {
+  color: #7dd3fc;
+}
+
+.login-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.25rem;
+  width: 100%;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.login-back:hover {
+  color: #38bdf8;
+}
+
+/* Sign-up step 2: Freelancer vs Client */
+.signup-role-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 420px) {
+  .signup-role-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.signup-role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 1rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.25));
+  background: rgba(15, 23, 42, 0.55);
+  color: #e2e8f0;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  font: inherit;
+}
+
+.signup-role-card:hover {
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.15);
+}
+
+.signup-role-card--active {
+  border-color: rgba(56, 189, 248, 0.75);
+  background: rgba(14, 165, 233, 0.12);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.25);
+}
+
+.signup-role-card__title {
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.signup-role-card__hint {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.signup-step-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.signup-step-actions .btn-secondary {
+  width: 100%;
+}

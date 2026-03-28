@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -7,6 +7,15 @@ from pathlib import Path
 from typing import List
 import numpy as np
 from blockchain_interface import contract, w3
+
+
+def _require_chain() -> None:
+    """Raise 503 if Ganache/contract is not available (avoids NoneType errors on-chain routes)."""
+    if contract is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Blockchain unavailable. Start Ganache on http://127.0.0.1:7545 and ensure the contract is deployed.",
+        )
 import hashlib
 import json
 from eth_utils import to_checksum_address
@@ -20,7 +29,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from backend.common.dataset_utils import infer_dataset_schema, load_dataset_scaled, DEFAULT_DATASET_PATH
 
-# Auth (optional - requires: pip install sqlalchemy psycopg2-binary passlib python-jose)
+# Auth (optional - requires: sqlalchemy, psycopg2-binary or pymysql, bcrypt, python-jose)
 try:
     from auth_routes import router as auth_router
     from database import init_db as _init_db
@@ -232,11 +241,12 @@ def _startup_train_anomaly_detector():
 
     # Register the contract owner address so the server can commit AI/decision hashes on-chain.
     # (submitHash requires trustScore[msg.sender] > 0)
-    try:
-        tx = contract.functions.registerClient().transact()
-        w3.eth.wait_for_transaction_receipt(tx)
-    except Exception:
-        pass
+    if contract is not None:
+        try:
+            tx = contract.functions.registerClient().transact()
+            w3.eth.wait_for_transaction_receipt(tx)
+        except Exception:
+            pass
 
 
 class ModelUpdate(BaseModel):
@@ -264,6 +274,7 @@ def get_global_model():
 
 @app.post("/submit_update")
 def submit_update(update: ModelUpdate):
+    _require_chain()
     global client_updates, submitted_clients, current_round, global_model
     global trust_history, client_address_mapping
 
@@ -346,6 +357,7 @@ def submit_update(update: ModelUpdate):
 # 🔥 NEW: Aggregation endpoint
 @app.post("/aggregate")
 def aggregate():
+    _require_chain()
     global global_model, current_round
     global client_updates, submitted_clients
     global trust_history, client_address_mapping
@@ -398,6 +410,7 @@ def get_trust_history():
 
 @app.get("/current_trust")
 def get_current_trust():
+    _require_chain()
     # Returns on-chain trust for clients we have seen in this run.
     result = {}
     for client_id, client_addr in client_address_mapping.items():
@@ -411,6 +424,7 @@ def get_current_trust():
 
 @app.get("/ganache_accounts_trust")
 def get_ganache_accounts_trust(limit: int = 10):
+    _require_chain()
     # Helper endpoint for demos: shows on-chain trust/blacklist for Ganache accounts
     # so you can verify that malicious clients get blacklisted even if they can't
     # submitHash anymore.
@@ -426,6 +440,7 @@ def get_ganache_accounts_trust(limit: int = 10):
 
 @app.get("/clients_snapshot")
 def get_clients_snapshot():
+    _require_chain()
     """
     Stable mapping for the demo clients -> Ganache accounts.
     This makes the frontend independent from in-memory `client_address_mapping`.
@@ -487,6 +502,7 @@ def _submit_hash_as(round_number: int, hash_bytes32: Any, sender_addr: str) -> N
     Calls contract.submitHash from `sender_addr`.
     Ganache provides unlocked accounts, so default_account switching works for demo.
     """
+    _require_chain()
     previous = w3.eth.default_account
     try:
         w3.eth.default_account = to_checksum_address(sender_addr)
@@ -552,6 +568,7 @@ class DecisionRequest(BaseModel):
 
 @app.post("/upwork/job/create")
 def upwork_create_job(req: CreateJobRequest):
+    _require_chain()
     global job_counter, jobs
 
     client_addr = w3.eth.accounts[req.client_index]
@@ -571,6 +588,8 @@ def upwork_create_job(req: CreateJobRequest):
         "freelancer_addr": freelancer_addr,
         "amount": float(req.amount),
         "created_at": created_at,
+        # Set once the job reaches a final on-chain decision state.
+        "decided_at": None,
         "deadline_until": deadline_until,
         "dispute_until": dispute_until,
         "state": "CREATED",
@@ -595,6 +614,7 @@ def upwork_create_job(req: CreateJobRequest):
 
 @app.post("/upwork/job/submit_proof")
 def upwork_submit_proof(req: SubmitProofRequest):
+    _require_chain()
     if req.job_id not in jobs:
         return {"ok": False, "message": "Unknown job_id"}
 
@@ -612,6 +632,7 @@ def upwork_submit_proof(req: SubmitProofRequest):
 
     job["proof_text"] = proof_text
     job["proof_hash_hex"] = proof_hash_hex
+    job["proof_submitted_at"] = int(time.time())
     job["state"] = "PROOF_SUBMITTED"
 
     return {"ok": True, "job_id": req.job_id, "proof_hash_hex": proof_hash_hex}
@@ -619,6 +640,7 @@ def upwork_submit_proof(req: SubmitProofRequest):
 
 @app.post("/upwork/job/run_ai")
 def upwork_run_ai(req: RunAiRequest):
+    _require_chain()
     if req.job_id not in jobs:
         return {"ok": False, "message": "Unknown job_id"}
     job = jobs[req.job_id]
@@ -653,6 +675,7 @@ def upwork_run_ai(req: RunAiRequest):
 
     job["ai_result"] = ai_result
     job["ai_hash_hex"] = ai_hash_hex
+    job["ai_committed_at"] = int(time.time())
     job["state"] = "AI_COMMITTED"
 
     return {"ok": True, "job_id": req.job_id, "ai_result": ai_result, "ai_hash_hex": ai_hash_hex}
@@ -669,6 +692,7 @@ def upwork_dispute(req: DecisionRequest):
 
 
 def _upwork_decide(req: DecisionRequest, action: str):
+    _require_chain()
     if req.job_id not in jobs:
         return {"ok": False, "message": "Unknown job_id"}
     job = jobs[req.job_id]
@@ -728,6 +752,7 @@ def _upwork_decide(req: DecisionRequest, action: str):
     job["decision_hash_hex"] = decision_hash_hex
     job["decision_action"] = action
     job["state"] = "DECIDED"
+    job["decided_at"] = now
 
     return {
         "ok": True,
@@ -739,6 +764,7 @@ def _upwork_decide(req: DecisionRequest, action: str):
 
 @app.get("/upwork/job/status")
 def upwork_job_status(job_id: int):
+    _require_chain()
     if job_id not in jobs:
         return {"ok": False, "message": "Unknown job_id"}
     job = jobs[job_id]
@@ -764,6 +790,7 @@ def upwork_job_status(job_id: int):
             "state": job["state"],
             "amount": job["amount"],
             "created_at": job["created_at"],
+            "decided_at": job.get("decided_at"),
             "deadline_until": job["deadline_until"],
             "dispute_until": job["dispute_until"],
             "client_addr": job["client_addr"],
@@ -866,4 +893,3 @@ def demo_page():
             "<h3>demo.html not found.</h3>"
             "<p>Expected: <code>backend/server/demo.html</code></p>"
         )
-   

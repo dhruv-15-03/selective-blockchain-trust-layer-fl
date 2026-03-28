@@ -1,8 +1,13 @@
+import warnings
+
+# Before web3 loads urllib3 (emits NotOpenSSLWarning on some macOS Python builds)
+warnings.filterwarnings("ignore", message=".*urllib3 v2 only supports OpenSSL.*")
+
 from web3 import Web3
 import json
 from eth_utils import to_checksum_address
 
-# Connect to Ganache
+# Connect to Ganache (or any JSON-RPC HTTP endpoint)
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:7545"))
 
 # Connection check (web3 v5: is_connected(), v6+: is_connected property)
@@ -13,8 +18,16 @@ try:
 except Exception as e:
     print("Blockchain check skipped:", e)
 
-# Set default account (server acts as aggregator authority)
-w3.eth.default_account = w3.eth.accounts[0]
+# Set default account only when RPC is reachable (otherwise import fails and API never starts)
+try:
+    if hasattr(w3, "is_connected"):
+        _rpc_ok = w3.is_connected() if callable(w3.is_connected) else w3.is_connected
+    else:
+        _rpc_ok = w3.isConnected()
+    if _rpc_ok and w3.eth.accounts:
+        w3.eth.default_account = w3.eth.accounts[0]
+except Exception as e:
+    print("Blockchain RPC unavailable (start Ganache on 7545 for on-chain features):", e)
 
 # 🔹 Replace with your deployed contract address
 contract_address = to_checksum_address("0xf58D411D133F0Cd384421FC717B443BDc00A6DD5")
@@ -251,5 +264,14 @@ abi = [
     }
 ] 
 
-# Create contract instance
-contract = w3.eth.contract(address=contract_address, abi=abi)
+# Create contract instance (only if we can talk to the chain)
+contract = None
+try:
+    if hasattr(w3, "is_connected"):
+        _rpc_ok = w3.is_connected() if callable(w3.is_connected) else w3.is_connected
+    else:
+        _rpc_ok = w3.isConnected()
+    if _rpc_ok and w3.eth.accounts:
+        contract = w3.eth.contract(address=contract_address, abi=abi)
+except Exception as e:
+    print("Contract not initialized:", e)

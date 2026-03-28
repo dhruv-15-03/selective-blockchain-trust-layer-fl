@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { api } from '../api'
+import { getStoredUser } from '../utils/trustAuth'
+import { getProfileStore } from '../utils/profileRoleStore'
 
 const JOB_ID_KEY = 'upwork_job_id'
 
@@ -38,6 +40,8 @@ export default function UpworkCreate() {
       if (!out.job_id) throw new Error(out.message || 'Create failed')
       localStorage.setItem(JOB_ID_KEY, String(out.job_id))
       setStoredJobId(String(out.job_id))
+      const user = getStoredUser()
+      if (user?.id) getProfileStore(user).addJobToHistory(user.id, out.job_id)
       setLog(`Job created. job_id=${out.job_id} state=${out.state}\nRedirecting...`)
       navigate('/upwork/submit_proof')
     } catch (e) {
