@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Blockchain Explorer - TrustChain</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0a0e17;color:#e2e8f0;min-height:100vh}
+.header{background:linear-gradient(135deg,#1a1f35 0%,#0d1117 100%);border-bottom:1px solid #1e293b;padding:20px 40px;display:flex;align-items:center;gap:16px}
+.header h1{font-size:24px;background:linear-gradient(90deg,#818cf8,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header .badge{background:#1e293b;padding:4px 12px;border-radius:20px;font-size:12px;color:#94a3b8}
+.container{max-width:1200px;margin:0 auto;padding:24px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:32px}
+.stat-card{background:#111827;border:1px solid #1e293b;border-radius:12px;padding:20px}
+.stat-card .label{color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:1px}
+.stat-card .value{font-size:28px;font-weight:700;color:#818cf8;margin-top:4px}
+.stat-card .sub{font-size:12px;color:#475569;margin-top:2px}
+h2{font-size:20px;margin:24px 0 16px;color:#e2e8f0}
+.job-block{background:#111827;border:1px solid #1e293b;border-radius:12px;margin-bottom:24px;overflow:hidden}
+.job-header{background:linear-gradient(90deg,#1e1b4b,#172554);padding:16px 24px;display:flex;justify-content:space-between;align-items:center}
+.job-header h3{font-size:18px;color:#c7d2fe}
+.job-header .job-id{background:#312e81;padding:4px 12px;border-radius:8px;font-size:13px;color:#a5b4fc}
+.job-meta{display:flex;gap:24px;padding:12px 24px;background:#0f172a;border-bottom:1px solid #1e293b;font-size:13px;color:#94a3b8}
+.job-meta span{display:flex;align-items:center;gap:6px}
+.milestone{border-top:1px solid #1e293b}
+.ms-header{padding:12px 24px;background:#0c1322;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.ms-header:hover{background:#111d35}
+.ms-header .step{font-weight:600;color:#a5b4fc}
+.phases{padding:0 24px 16px}
+.phase{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid #1e293b}
+.phase:last-child{border-bottom:none}
+.phase-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.phase-icon.req{background:#1e3a5f;color:#60a5fa}
+.phase-icon.sub{background:#1a3c34;color:#34d399}
+.phase-icon.ai{background:#3b1f5e;color:#c084fc}
+.phase-icon.dec{background:#3b2f1a;color:#fbbf24}
+.phase-icon.pending{background:#1e293b;color:#475569}
+.phase-content{flex:1;min-width:0}
+.phase-title{font-weight:600;font-size:14px;margin-bottom:4px}
+.phase-data{font-size:12px;color:#94a3b8;word-break:break-all}
+.phase-data .hash{font-family:'Cascadia Code',monospace;color:#818cf8;font-size:11px}
+.phase-data .field{margin:2px 0}
+.phase-data .label{color:#64748b}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.tag.pass{background:#064e3b;color:#34d399}
+.tag.fail{background:#450a0a;color:#f87171}
+.tag.committed{background:#1e3a5f;color:#60a5fa}
+.tag.pending{background:#1e293b;color:#475569}
+.blocks-list{display:flex;flex-direction:column;gap:8px;margin-bottom:32px}
+.block-row{background:#111827;border:1px solid #1e293b;border-radius:8px;padding:12px 20px;display:grid;grid-template-columns:60px 1fr 120px 100px;gap:16px;align-items:center;font-size:13px}
+.block-row .bn{color:#818cf8;font-weight:700}
+.block-row .tx{font-family:monospace;color:#94a3b8;font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.block-row .gas{color:#64748b}
+.block-row .status{text-align:right}
+.trust-table{width:100%;border-collapse:collapse;margin-bottom:32px}
+.trust-table th{text-align:left;padding:10px 16px;background:#0f172a;color:#64748b;font-size:12px;text-transform:uppercase;border-bottom:1px solid #1e293b}
+.trust-table td{padding:10px 16px;border-bottom:1px solid #1e293b;font-size:13px}
+.trust-table tr:hover{background:#111827}
+.trust-bar{height:6px;border-radius:3px;background:#1e293b;overflow:hidden;width:120px;display:inline-block;vertical-align:middle;margin-left:8px}
+.trust-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#ef4444,#f59e0b,#22c55e)}
+.loading{text-align:center;padding:60px;color:#64748b;font-size:16px}
+.addr{font-family:monospace;font-size:11px;color:#818cf8}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>⛓ TrustChain Block Explorer</h1>
+<span class="badge">Hardhat Local · chainId: 31337</span>
+<span class="badge" id="blockCount">Loading...</span>
+</div>
+<div class="container">
+<div class="stats" id="stats"><div class="loading">Loading blockchain data...</div></div>
+<div id="content"></div>
+</div>
+<script>
+async function load(){
+  try{
+    const r=await fetch('/explorer');
+    const d=await r.json();
+    renderStats(d);
+    renderContent(d);
+  }catch(e){
+    document.getElementById('content').innerHTML='<p style="color:#f87171">Error: '+e.message+'</p>';
+  }
+}
+function renderStats(d){
+  const s=document.getElementById('stats');
+  const totalBlocks=d.blocks?d.blocks.length:0;
+  const totalJobs=d.jobs?d.jobs.length:0;
+  const totalAccounts=d.accounts?d.accounts.length:0;
+  document.getElementById('blockCount').textContent=totalBlocks+' blocks';
+  s.innerHTML=`
+    <div class="stat-card"><div class="label">Total Blocks</div><div class="value">${totalBlocks}</div><div class="sub">Transactions mined</div></div>
+    <div class="stat-card"><div class="label">Jobs On-Chain</div><div class="value">${totalJobs}</div><div class="sub">Complete job blocks stored</div></div>
+    <div class="stat-card"><div class="label">Smart Contracts</div><div class="value">${Object.keys(d.contracts||{}).length}</div><div class="sub">TrustLayer + JobLedger</div></div>
+    <div class="stat-card"><div class="label">Accounts</div><div class="value">${totalAccounts}</div><div class="sub">Registered wallets</div></div>
+  `;
+}
+function shortAddr(a){return a?(a.slice(0,8)+'...'+a.slice(-6)):'-'}
+function shortHash(h){return h?(h.slice(0,14)+'...'+h.slice(-8)):'-'}
+function renderContent(d){
+  let html='';
+  // Contracts
+  html+='<h2>📋 Smart Contracts</h2>';
+  for(const[name,c]of Object.entries(d.contracts||{})){
+    html+=`<div style="background:#111827;border:1px solid #1e293b;border-radius:8px;padding:16px 20px;margin-bottom:12px">
+      <div style="font-weight:700;color:#a5b4fc;margin-bottom:4px">${name}</div>
+      <div class="addr">${c.address}</div>
+      <div style="margin-top:8px;font-size:12px;color:#64748b">Functions: ${c.functions.join(' · ')}</div>
+    </div>`;
+  }
+  // Jobs on-chain
+  if(d.jobs&&d.jobs.length>0){
+    html+='<h2>💼 Job Blocks (Full On-Chain Records)</h2>';
+    for(const job of d.jobs){
+      html+=`<div class="job-block">
+        <div class="job-header">
+          <h3>Job: ${job.client?shortAddr(job.client):'Unknown Client'}</h3>
+          <span class="job-id">Job #${job.job_id}</span>
+        </div>
+        <div class="job-meta">
+          <span>💰 Budget: $${(job.budget||0).toFixed(2)}</span>
+          <span>📊 Steps: ${job.steps||0}</span>
+          <span>🕐 Created: Block timestamp ${job.created_at||'-'}</span>
+          <span>👷 Freelancer: ${job.freelancer&&job.freelancer!='0x0000000000000000000000000000000000000000'?shortAddr(job.freelancer):'Not assigned'}</span>
+        </div>`;
+      for(const ms of (job.milestones||[])){
+        const allDone=ms.requirements_committed&&ms.submission_committed&&ms.ai_committed&&ms.decided;
+        html+=`<div class="milestone">
+          <div class="ms-header">
+            <span class="step">Step ${ms.step}</span>
+            <span class="tag ${allDone?'committed':'pending'}">${allDone?'ALL PHASES ON-CHAIN':'IN PROGRESS'}</span>
+          </div>
+          <div class="phases">
+            <div class="phase">
+              <div class="phase-icon ${ms.requirements_committed?'req':'pending'}">${ms.requirements_committed?'📝':'⏳'}</div>
+              <div class="phase-content">
+                <div class="phase-title">Phase 0: Requirements</div>
+                <div class="phase-data">
+                  <div class="field"><span class="label">Status:</span> <span class="tag ${ms.requirements_committed?'committed':'pending'}">${ms.requirements_committed?'COMMITTED':'PENDING'}</span></div>
+                  ${ms.requirements_hash?'<div class="field"><span class="label">Hash:</span> <span class="hash">'+shortHash(ms.requirements_hash)+'</span></div>':''}
+                </div>
+              </div>
+            </div>
+            <div class="phase">
+              <div class="phase-icon ${ms.submission_committed?'sub':'pending'}">${ms.submission_committed?'📦':'⏳'}</div>
+              <div class="phase-content">
+                <div class="phase-title">Phase 1: Submission (GitHub)</div>
+                <div class="phase-data">
+                  <div class="field"><span class="label">Status:</span> <span class="tag ${ms.submission_committed?'committed':'pending'}">${ms.submission_committed?'COMMITTED':'PENDING'}</span></div>
+                  ${ms.submission_hash?'<div class="field"><span class="label">Hash:</span> <span class="hash">'+shortHash(ms.submission_hash)+'</span></div>':''}
+                </div>
+              </div>
+            </div>
+            <div class="phase">
+              <div class="phase-icon ${ms.ai_committed?'ai':'pending'}">${ms.ai_committed?'🤖':'⏳'}</div>
+              <div class="phase-content">
+                <div class="phase-title">Phase 2: AI Review</div>
+                <div class="phase-data">
+                  <div class="field"><span class="label">Status:</span> <span class="tag ${ms.ai_committed?'committed':'pending'}">${ms.ai_committed?'COMMITTED':'PENDING'}</span></div>
+                  ${ms.ai_score!=null?'<div class="field"><span class="label">AI Score:</span> <strong>'+ms.ai_score.toFixed(2)+'%</strong> <span class="tag '+(ms.ai_pass?'pass':'fail')+'">'+(ms.ai_pass?'PASS':'FAIL')+'</span></div>':''}
+                </div>
+              </div>
+            </div>
+            <div class="phase">
+              <div class="phase-icon ${ms.decided?'dec':'pending'}">${ms.decided?'✅':'⏳'}</div>
+              <div class="phase-content">
+                <div class="phase-title">Phase 3: Decision</div>
+                <div class="phase-data">
+                  <div class="field"><span class="label">Status:</span> <span class="tag ${ms.decided?'committed':'pending'}">${ms.decided?'COMMITTED':'PENDING'}</span></div>
+                  ${ms.decided?'<div class="field"><span class="label">Verdict:</span> <span class="tag '+(ms.approved?'pass':'fail')+'">'+(ms.approved?'APPROVED':'REJECTED')+'</span></div>':''}
+                  ${ms.payment?'<div class="field"><span class="label">Payment:</span> <strong>$'+ms.payment.toFixed(2)+'</strong></div>':''}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }
+      html+='</div>';
+    }
+  }
+  // Trust scores
+  html+='<h2>🔐 Trust Scores (TrustLayer Contract)</h2>';
+  html+='<table class="trust-table"><tr><th>#</th><th>Address</th><th>Role</th><th>Trust</th><th>Status</th></tr>';
+  for(const a of (d.accounts||[])){
+    const pct=Math.min(a.trust_score/120*100,100);
+    html+=`<tr>
+      <td>[${a.index}]</td>
+      <td class="addr">${a.address}</td>
+      <td>${a.role}</td>
+      <td>${a.trust_score}/120 <div class="trust-bar"><div class="trust-fill" style="width:${pct}%"></div></div></td>
+      <td><span class="tag ${a.blacklisted?'fail':'pass'}">${a.blacklisted?'BLACKLISTED':'ACTIVE'}</span></td>
+    </tr>`;
+  }
+  html+='</table>';
+  // Block history
+  html+='<h2>⛓ Block History (All Transactions)</h2>';
+  html+='<div class="blocks-list">';
+  for(const b of (d.blocks||[]).reverse()){
+    html+=`<div class="block-row">
+      <div class="bn">#${b.block}</div>
+      <div class="tx">${b.tx_hash}</div>
+      <div class="gas">${b.gas_used.toLocaleString()} gas</div>
+      <div class="status"><span class="tag ${b.status==='success'?'pass':'fail'}">${b.status}</span></div>
+    </div>`;
+  }
+  html+='</div>';
+  document.getElementById('content').innerHTML=html;
+}
+load();
+</script>
+</body>
+</html>

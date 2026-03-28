@@ -12,3 +12,7 @@ cache/
 
 # OS
 .DS_Store
+
+# Env secrets
+.env
+backend/server/.env
