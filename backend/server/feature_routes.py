@@ -170,6 +170,20 @@ def get_user_profile(current_user: User = Depends(get_current_user)):
     }
 
     if current_user.role == UserRole.FREELANCER:
+        # Compute unified project trust score:
+        # Combines blockchain trust (on-chain) + AI confidence + quality avg
+        blockchain_trust = trust_score  # 0-120
+        ai_confidence = ws.confidence_score  # 0-100
+        ai_quality = ws.avg_quality_score  # 0-100
+        fraud_risk = ws.avg_fraud_risk or 0  # 0-1
+
+        # Unified score: 40% blockchain + 35% AI confidence + 25% quality - fraud penalty
+        unified = (0.40 * min(blockchain_trust, 100) +
+                   0.35 * ai_confidence +
+                   0.25 * ai_quality -
+                   min(fraud_risk * 30, 20))
+        unified = max(0, min(100, round(unified, 2)))
+
         base.update({
             "hourly_rate": current_user.hourly_rate,
             "portfolio_url": current_user.portfolio_url,
@@ -177,6 +191,7 @@ def get_user_profile(current_user: User = Depends(get_current_user)):
             "experience_years": current_user.experience_years,
             "total_jobs_completed": current_user.total_jobs_completed or 0,
             "total_earnings": current_user.total_earnings or 0.0,
+            "project_trust_score": unified,
             "worker_score": {
                 "confidence_score": round(ws.confidence_score, 2),
                 "avg_quality_score": round(ws.avg_quality_score, 2),
@@ -187,6 +202,15 @@ def get_user_profile(current_user: User = Depends(get_current_user)):
                 "total_milestones_late": ws.total_milestones_late,
                 "on_time_streak": ws.on_time_streak,
                 "dispute_count": ws.dispute_count,
+                "fraud_flags": ws.fraud_flags or 0,
+                "avg_fraud_risk": round(ws.avg_fraud_risk or 0, 4),
+            },
+            "score_breakdown": {
+                "blockchain_trust": trust_score,
+                "ai_confidence": round(ai_confidence, 2),
+                "ai_quality_avg": round(ai_quality, 2),
+                "fraud_risk": round(fraud_risk, 4),
+                "formula": "40% blockchain + 35% confidence + 25% quality - fraud_penalty",
             },
         })
     else:
@@ -229,14 +253,24 @@ def get_public_profile(user_id: int, current_user: User = Depends(get_current_us
 
     if user.role == UserRole.FREELANCER:
         ws = _get_worker_score(db, user.id)
+        u_trust = user.trust_score or 100
+        unified = (0.40 * min(u_trust, 100) +
+                   0.35 * ws.confidence_score +
+                   0.25 * ws.avg_quality_score -
+                   min((ws.avg_fraud_risk or 0) * 30, 20))
+        unified = max(0, min(100, round(unified, 2)))
         result.update({
             "hourly_rate": user.hourly_rate,
             "portfolio_url": user.portfolio_url,
             "github_username": user.github_username,
             "experience_years": user.experience_years,
             "total_jobs_completed": user.total_jobs_completed or 0,
+            "project_trust_score": unified,
             "confidence_score": round(ws.confidence_score, 2),
             "avg_quality_score": round(ws.avg_quality_score, 2),
+            "avg_deadline_adherence": round(ws.avg_deadline_adherence, 2),
+            "on_time_streak": ws.on_time_streak,
+            "fraud_flags": ws.fraud_flags or 0,
         })
     else:
         result.update({
@@ -795,7 +829,6 @@ def fail_milestone(
         "message": "Freelancer can resubmit this milestone",
     }
 
-
 # ===================================================================
 # 4b. FRAUD MODEL INTEGRATION + WORKER PROFILE UPDATE
 # ===================================================================
@@ -1090,8 +1123,18 @@ def get_worker_score_endpoint(user_id: int, current_user: User = Depends(get_cur
     if not user or user.role != UserRole.FREELANCER:
         raise HTTPException(status_code=404, detail="Freelancer not found")
     ws = _get_worker_score(db, user_id)
+
+    u_trust = user.trust_score or 100
+    unified = (0.40 * min(u_trust, 100) +
+               0.35 * ws.confidence_score +
+               0.25 * ws.avg_quality_score -
+               min((ws.avg_fraud_risk or 0) * 30, 20))
+    unified = max(0, min(100, round(unified, 2)))
+
     return {
         "user_id": user_id,
+        "project_trust_score": unified,
+        "blockchain_trust": u_trust,
         "confidence_score": round(ws.confidence_score, 2),
         "avg_quality_score": round(ws.avg_quality_score, 2),
         "avg_deadline_adherence": round(ws.avg_deadline_adherence, 2),
@@ -1103,7 +1146,64 @@ def get_worker_score_endpoint(user_id: int, current_user: User = Depends(get_cur
         "dispute_count": ws.dispute_count,
         "fraud_flags": ws.fraud_flags or 0,
         "avg_fraud_risk": round(ws.avg_fraud_risk or 0, 4),
+        "score_breakdown": {
+            "blockchain_weight": "40%",
+            "confidence_weight": "35%",
+            "quality_weight": "25%",
+            "formula": "40% blockchain + 35% confidence + 25% quality - fraud_penalty",
+        },
     }
+
+
+@router.get("/worker/{user_id}/milestone_history")
+def get_milestone_history(user_id: int, current_user: User = Depends(get_current_user)):
+    """Get a freelancer's complete milestone history with AI scores."""
+    db = current_user._db_session
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Get all milestones where this user is the freelancer
+    milestones = (
+        db.query(Milestone)
+        .join(Job, Milestone.job_id == Job.id)
+        .filter(Job.freelancer_id == user_id)
+        .order_by(Milestone.created_at.desc())
+        .limit(50)
+        .all()
+    )
+
+    history = []
+    for m in milestones:
+        job = db.query(Job).filter(Job.id == m.job_id).first()
+        entry = {
+            "milestone_id": m.id,
+            "job_id": m.job_id,
+            "job_title": job.title if job else "Unknown",
+            "step": m.step_number,
+            "title": m.title,
+            "status": m.status.value,
+            "ai_score": m.ai_score,
+            "deadline_met": m.deadline_met,
+            "payout": m.payout_amount,
+            "payment_released": m.payment_released,
+            "submitted_at": str(m.submitted_at) if m.submitted_at else None,
+            "reviewed_at": str(m.ai_checked_at) if m.ai_checked_at else None,
+        }
+        # Extract fraud check from stored analysis
+        if m.ai_analysis:
+            try:
+                analysis = json.loads(m.ai_analysis)
+                entry["fraud_verdict"] = analysis.get("fraud_check", {}).get("verdict")
+                entry["fraud_risk"] = analysis.get("fraud_check", {}).get("risk_score")
+                entry["criteria_score"] = analysis.get("criteria_score")
+                entry["code_quality"] = analysis.get("code_quality_score")
+                entry["analysis_method"] = analysis.get("analysis_method")
+            except Exception:
+                pass
+        history.append(entry)
+
+    return {"user_id": user_id, "total": len(history), "milestones": history}
 
 
 # ===================================================================
