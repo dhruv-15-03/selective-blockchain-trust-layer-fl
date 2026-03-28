@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { api } from '../api'
+import { getStoredUser } from '../utils/trustAuth'
+import { getProfileStore } from '../utils/profileRoleStore'
 
 const JOB_ID_KEY = 'upwork_job_id'
 
@@ -29,6 +31,8 @@ export default function UpworkResults() {
         ])
         setJob(status?.job)
         setClients(clientsRes || {})
+        const user = getStoredUser()
+        if (user?.id) getProfileStore(user).addJobToHistory(user.id, jobId)
       } catch (e) {
         console.error(e)
       }

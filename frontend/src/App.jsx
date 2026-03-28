@@ -12,6 +12,7 @@ import UpworkDecision from './pages/UpworkDecision'
 import UpworkResults from './pages/UpworkResults'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
+import Profile from './pages/Profile'
 import './App.css'
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/upwork/results" element={<UpworkResults />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </div>
     </BrowserRouter>
