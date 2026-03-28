@@ -12,10 +12,15 @@ async function parseJson(res) {
   }
 }
 
+function getAuthHeaders() {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function fetchApi(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), ...options.headers },
   });
   return parseJson(res);
 }
@@ -23,20 +28,32 @@ async function fetchApi(path, options = {}) {
 async function postJson(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(body),
+  });
+  return parseJson(res);
+}
+
+async function putJson(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(body),
   });
   return parseJson(res);
 }
 
 export const api = {
+  // FL Demo endpoints
   getGlobalModel: () => fetchApi('/get_global_model'),
   trustHistory: () => fetchApi('/trust_history'),
   currentTrust: () => fetchApi('/current_trust'),
   ganacheAccountsTrust: (limit = 10) => fetchApi(`/ganache_accounts_trust?limit=${limit}`),
   clientsSnapshot: () => fetchApi('/clients_snapshot'),
   aggregate: () => postJson('/aggregate', {}),
+  modelMetrics: () => fetchApi('/model_metrics'),
 
+  // Upwork Job Workflow (demo)
   upwork: {
     createJob: (payload) => postJson('/upwork/job/create', payload),
     submitProof: (payload) => postJson('/upwork/job/submit_proof', payload),
@@ -46,8 +63,59 @@ export const api = {
     status: (jobId) => fetchApi(`/upwork/job/status?job_id=${jobId}`),
   },
 
+  // Auth
   auth: {
     signup: (payload) => postJson('/auth/signup', payload),
     login: (payload) => postJson('/auth/login', payload),
+  },
+
+  // User Profile
+  user: {
+    profile: () => fetchApi('/user/profile'),
+    publicProfile: (userId) => fetchApi(`/user/profile/${userId}`),
+    updateProfile: (payload) => putJson('/user/profile', payload),
+    linkWallet: (walletAddress) => postJson('/user/link_wallet', { wallet_address: walletAddress }),
+    trustHistory: () => fetchApi('/user/trust_history'),
+  },
+
+  // Subscriptions
+  subscription: {
+    subscribe: (tier = 'premium', days = 30) => postJson('/subscription/subscribe', { tier, duration_days: days }),
+    status: () => fetchApi('/subscription/status'),
+  },
+
+  // Jobs (milestone-based)
+  jobs: {
+    create: (payload) => postJson('/jobs/create', payload),
+    list: (statusFilter, skills, limit = 50) => {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set('status_filter', statusFilter);
+      if (skills) params.set('skills', skills);
+      params.set('limit', limit);
+      return fetchApi(`/jobs/list?${params}`);
+    },
+    detail: (jobId) => fetchApi(`/jobs/${jobId}`),
+    apply: (jobId) => postJson(`/jobs/${jobId}/apply`, {}),
+    matchFreelancers: (jobId, query = {}) => postJson(`/jobs/${jobId}/match_freelancers`, query),
+    review: (jobId, rating, comment) => postJson(`/jobs/${jobId}/review`, { rating, comment }),
+  },
+
+  // Milestones
+  milestones: {
+    submit: (jobId, step, githubUrl, proofText) =>
+      postJson(`/jobs/${jobId}/milestones/${step}/submit`, { github_repo_url: githubUrl, proof_text: proofText }),
+    aiReview: (jobId, step) => postJson(`/jobs/${jobId}/milestones/${step}/ai_review`, {}),
+    approve: (jobId, step) => postJson(`/jobs/${jobId}/milestones/${step}/approve`, {}),
+    fail: (jobId, step) => postJson(`/jobs/${jobId}/milestones/${step}/fail`, {}),
+  },
+
+  // Worker Score
+  worker: {
+    score: (userId) => fetchApi(`/worker/score/${userId}`),
+  },
+
+  // AI Analysis
+  analyze: {
+    repo: (githubUrl, criteria) => postJson('/analyze/repo', { github_repo_url: githubUrl, acceptance_criteria: criteria }),
   },
 };

@@ -9,6 +9,7 @@ eth-utils
 # Auth + DB
 python-dotenv
 sqlalchemy
-psycopg2-binary
+pymysql
+cryptography
 passlib[bcrypt]
 python-jose[cryptography]

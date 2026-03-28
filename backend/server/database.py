@@ -1,5 +1,6 @@
 """
-PostgreSQL database setup. Set DATABASE_URL env var (Neon/Aiven connection string).
+Database setup. Supports MySQL (Aiven), PostgreSQL (Neon/Aiven), or SQLite fallback.
+Set DATABASE_URL env var with your connection string.
 """
 import os
 try:
@@ -14,10 +15,19 @@ from sqlalchemy.pool import StaticPool
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
-    # Neon/Aiven use postgresql:// - replace with postgresql+psycopg2:// for SQLAlchemy
-    if DATABASE_URL.startswith("postgresql://"):
+    # MySQL (Aiven) - already has mysql+pymysql:// prefix from .env
+    if DATABASE_URL.startswith("mysql://"):
+        DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
+    # PostgreSQL (Neon/Aiven)
+    elif DATABASE_URL.startswith("postgresql://"):
         DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
-    engine = create_engine(DATABASE_URL)
+
+    # SSL config for cloud providers
+    connect_args = {}
+    if "aivencloud.com" in DATABASE_URL or "neon.tech" in DATABASE_URL:
+        connect_args["ssl"] = {"ssl_disabled": False}
+
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=300)
 else:
     # Fallback: in-memory SQLite for dev (no DB setup needed)
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)

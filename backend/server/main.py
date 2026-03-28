@@ -46,6 +46,15 @@ if _AUTH_AVAILABLE and auth_router:
 if _FEATURES_AVAILABLE and feature_router:
     app.include_router(feature_router)
 
+# Global exception handler so 500 errors show the actual message
+from fastapi.responses import JSONResponse
+import traceback as _tb
+
+@app.exception_handler(Exception)
+async def _global_exception_handler(request, exc):
+    _tb.print_exc()
+    return JSONResponse(status_code=500, content={"detail": str(exc)[:500]})
+
 # CORS for React dev server (port 5173) and production
 app.add_middleware(
     CORSMiddleware,
@@ -789,7 +798,7 @@ def _sha256_bytes32_hex(text: str) -> Tuple[str, Any]:
 def _submit_hash_as(round_number: int, hash_bytes32: Any, sender_addr: str) -> None:
     """
     Calls contract.submitHash from `sender_addr`.
-    Ganache provides unlocked accounts, so default_account switching works for demo.
+    Hardhat/Ganache provides unlocked accounts, so default_account switching works for demo.
     """
     previous = w3.eth.default_account
     try:
@@ -800,8 +809,11 @@ def _submit_hash_as(round_number: int, hash_bytes32: Any, sender_addr: str) -> N
             w3.eth.wait_for_transaction_receipt(tx_reg)
         except Exception:
             pass
-        tx = contract.functions.submitHash(round_number, hash_bytes32).transact()
-        w3.eth.wait_for_transaction_receipt(tx)
+        try:
+            tx = contract.functions.submitHash(round_number, hash_bytes32).transact()
+            w3.eth.wait_for_transaction_receipt(tx)
+        except Exception as e:
+            print(f"submitHash failed (round={round_number}): {e}")
     finally:
         w3.eth.default_account = previous
 
@@ -1060,7 +1072,7 @@ def upwork_run_ai(req: RunAiRequest):
         b2 = w[idx:idx + 1]
         z1 = x_scaled @ W1 + b1
         a1 = np.maximum(0.0, z1)
-        z2 = float(a1 @ W2 + b2)
+        z2 = (a1 @ W2 + b2).item()
         risk_score = _sigmoid(z2)
     elif w is not None and len(x_scaled) > 0:
         # Logistic regression fallback
