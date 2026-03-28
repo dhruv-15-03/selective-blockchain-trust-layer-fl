@@ -37,6 +37,94 @@ LLM_ENDPOINT = os.getenv("LLM_ENDPOINT", "https://models.inference.ai.github.com
 LLM_ENABLED = bool(GITHUB_TOKEN)
 
 
+# --- JobLedger contract (complete job blocks on-chain) ---
+try:
+    from job_ledger_interface import (
+        ledger_create_job, ledger_commit_requirements, ledger_commit_submission,
+        ledger_commit_ai_review, ledger_commit_decision,
+        ledger_get_job, ledger_get_milestone,
+    )
+    LEDGER_AVAILABLE = True
+except ImportError:
+    LEDGER_AVAILABLE = False
+
+# --- Blockchain on-chain commit helpers ---
+def _milestone_round(job_id: int, step: int, phase: int) -> int:
+    """
+    Unique round number for each milestone phase on-chain.
+    Phase 0: requirements, 1: submission, 2: AI analysis, 3: decision
+    """
+    return job_id * 1000 + step * 10 + phase
+
+
+def _sha256_hex(data: str) -> str:
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def _commit_hash_onchain(round_number: int, data_str: str, sender_addr: str) -> dict:
+    """
+    Commit a SHA256 hash on-chain via TrustLayer.submitHash().
+    Returns {ok, hash_hex, round, tx_hash} or {ok: False, error}.
+    """
+    try:
+        from blockchain_interface import contract, w3
+        from eth_utils import to_checksum_address
+
+        hash_hex = _sha256_hex(data_str)
+        hash_bytes = bytes.fromhex(hash_hex)
+        addr = to_checksum_address(sender_addr)
+
+        previous = w3.eth.default_account
+        try:
+            w3.eth.default_account = addr
+            # Ensure registered
+            try:
+                tx_reg = contract.functions.registerClient().transact()
+                w3.eth.wait_for_transaction_receipt(tx_reg)
+            except Exception:
+                pass
+            # Submit hash
+            try:
+                tx = contract.functions.submitHash(round_number, hash_bytes).transact()
+                receipt = w3.eth.wait_for_transaction_receipt(tx)
+                return {
+                    "ok": True,
+                    "hash_hex": hash_hex,
+                    "round": round_number,
+                    "tx_hash": receipt.transactionHash.hex(),
+                    "block": receipt.blockNumber,
+                }
+            except Exception as e:
+                return {"ok": False, "hash_hex": hash_hex, "round": round_number, "error": str(e)[:200]}
+        finally:
+            w3.eth.default_account = previous
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
+
+
+def _verify_hash_onchain(round_number: int, sender_addr: str, expected_hash_hex: str) -> dict:
+    """Verify an on-chain hash matches the expected value."""
+    try:
+        from blockchain_interface import contract, w3
+        from eth_utils import to_checksum_address
+
+        addr = to_checksum_address(sender_addr)
+        onchain = contract.functions.updateHashes(round_number, addr).call()
+        onchain_hex = bytes(onchain).hex()
+        expected_clean = expected_hash_hex.replace("0x", "")
+        matches = onchain_hex == expected_clean and onchain_hex != "0" * 64
+
+        return {
+            "verified": matches,
+            "onchain_hash": "0x" + onchain_hex,
+            "expected_hash": "0x" + expected_clean,
+            "round": round_number,
+            "address": addr,
+        }
+    except Exception as e:
+        return {"verified": False, "error": str(e)[:200]}
+
+
 # ===================================================================
 # Pydantic Schemas
 # ===================================================================
@@ -411,6 +499,33 @@ def create_job(req: CreateJobPostRequest, current_user: User = Depends(get_curre
     db.commit()
     db.refresh(job)
 
+    # ── BLOCKCHAIN: Create complete job block + commit requirements ──
+    blockchain_commits = []
+    ledger_result = None
+
+    # 1. Create job in JobLedger (complete block)
+    if LEDGER_AVAILABLE:
+        client_addr = current_user.wallet_address or "0x0000000000000000000000000000000000000000"
+        ledger_result = ledger_create_job(
+            job.id, client_addr, job.title, job.description,
+            job.budget, job.total_steps,
+        )
+
+    # 2. Commit each milestone's requirements (full text on-chain via events)
+    if LEDGER_AVAILABLE:
+        for i, ms in enumerate(req.milestones, start=1):
+            data_hash = bytes.fromhex(_sha256_hex(json.dumps({
+                "job_id": job.id, "step": i,
+                "title": ms.title,
+                "acceptance_criteria": ms.acceptance_criteria,
+                "budget": ms.payout_amount,
+            }, sort_keys=True)))
+            bc = ledger_commit_requirements(
+                job.id, i, ms.title, ms.acceptance_criteria,
+                ms.payout_amount, int(ms.deadline_hours * 3600), data_hash,
+            )
+            blockchain_commits.append({"step": i, "phase": "requirements", **bc})
+
     return {
         "ok": True,
         "job_id": job.id,
@@ -427,6 +542,8 @@ def create_job(req: CreateJobPostRequest, current_user: User = Depends(get_curre
             }
             for i in range(len(req.milestones))
         ],
+        "blockchain_job": ledger_result,
+        "blockchain_commits": blockchain_commits,
     }
 
 
@@ -509,11 +626,8 @@ def apply_for_job(job_id: int, current_user: User = Depends(get_current_user)):
     total_jobs = (current_user.total_jobs_completed or 0)
     is_blacklisted = False
     if current_user.wallet_address:
-        try:
-            from blockchain_interface import contract
-            is_blacklisted = contract.functions.blacklisted(current_user.wallet_address).call()
-        except Exception:
-            pass
+        from blockchain_interface import safe_is_blacklisted
+        is_blacklisted = safe_is_blacklisted(current_user.wallet_address)
 
     if total_jobs >= 3 and (ws.confidence_score < 30 or is_blacklisted):
         # Must have premium to apply
@@ -602,6 +716,16 @@ def submit_milestone(
     }, sort_keys=True)
     ms.proof_hash = hashlib.sha256(proof_data.encode()).hexdigest()
 
+    # Commit submission to JobLedger (Phase 1) — full data on-chain
+    bc_submit = {"ok": False}
+    if LEDGER_AVAILABLE:
+        fl_addr = current_user.wallet_address or "0x0000000000000000000000000000000000000000"
+        bc_submit = ledger_commit_submission(
+            job_id, step, fl_addr,
+            req.github_repo_url, ms.github_commit_sha or "",
+            bytes.fromhex(ms.proof_hash),
+        )
+
     db.commit()
     return {
         "ok": True, "job_id": job_id, "step": step,
@@ -610,6 +734,7 @@ def submit_milestone(
         "commit_sha": ms.github_commit_sha,
         "commit_time": str(ms.github_commit_time) if ms.github_commit_time else None,
         "proof_hash": ms.proof_hash,
+        "blockchain": bc_submit,
     }
 
 
@@ -717,6 +842,24 @@ def ai_review_milestone(
     if job.freelancer_id:
         _update_worker_profile_from_review(db, job.freelancer_id, ms, final_score, passed)
 
+    # ── 8. Commit AI review to JobLedger (Phase 2) ──
+    bc_ai = {"ok": False}
+    if LEDGER_AVAILABLE:
+        ai_commit_data = json.dumps({
+            "job_id": job_id, "step": step,
+            "ai_score": ms.ai_score,
+            "pass": passed,
+            "criteria_coverage": analysis.get("criteria_coverage"),
+            "code_quality": analysis.get("code_quality_score"),
+            "fraud_verdict": analysis.get("fraud_check", {}).get("verdict"),
+            "analysis_method": analysis.get("analysis_method"),
+        }, sort_keys=True)
+        bc_ai = ledger_commit_ai_review(
+            job_id, step, ms.ai_score or 0, passed,
+            analysis.get("analysis_method", "static_analysis"),
+            bytes.fromhex(_sha256_hex(ai_commit_data)),
+        )
+
     db.commit()
 
     return {
@@ -724,6 +867,7 @@ def ai_review_milestone(
         "ai_score": ms.ai_score,
         "pass": passed,
         "analysis": analysis,
+        "blockchain": bc_ai,
     }
 
 
@@ -751,16 +895,14 @@ def approve_milestone(
 
     _update_worker_score_on_pass(db, job.freelancer_id, ms)
 
-    # Reward on-chain trust
+    # Reward on-chain trust (with confirmation tracking)
+    reward_result = {"ok": False}
     freelancer = db.query(User).filter(User.id == job.freelancer_id).first()
     if freelancer and freelancer.wallet_address:
-        try:
-            from blockchain_interface import contract, w3
-            tx = contract.functions.rewardClient(freelancer.wallet_address).transact()
-            w3.eth.wait_for_transaction_receipt(tx)
-            freelancer.trust_score = contract.functions.getTrust(freelancer.wallet_address).call()
-        except Exception:
-            pass
+        from blockchain_interface import safe_reward
+        reward_result = safe_reward(freelancer.wallet_address)
+        if reward_result["ok"]:
+            freelancer.trust_score = reward_result["trust"]
 
     if freelancer:
         freelancer.total_earnings = (freelancer.total_earnings or 0) + ms.payout_amount
@@ -782,11 +924,29 @@ def approve_milestone(
         current_user.total_spent = (current_user.total_spent or 0) + job.budget
 
     db.commit()
+
+    # Commit approval to JobLedger (Phase 3)
+    bc_decision = {"ok": False}
+    if LEDGER_AVAILABLE:
+        decision_data = json.dumps({
+            "job_id": job_id, "step": step,
+            "decision": "APPROVED",
+            "payment_released": ms.payout_amount,
+            "ai_score": ms.ai_score,
+            "freelancer_id": job.freelancer_id,
+        }, sort_keys=True)
+        bc_decision = ledger_commit_decision(
+            job_id, step, True, ms.payout_amount,
+            bytes.fromhex(_sha256_hex(decision_data)),
+        )
+
     return {
         "ok": True, "step": step, "status": "passed",
         "payment_released": ms.payout_amount,
         "next_step": next_step if next_step <= job.total_steps else None,
         "job_completed": next_step > job.total_steps,
+        "blockchain_reward": reward_result,
+        "blockchain_decision": bc_decision,
     }
 
 
@@ -812,21 +972,108 @@ def fail_milestone(
     ms.status = MilestoneStatus.FAILED
     _update_worker_score_on_fail(db, job.freelancer_id, ms)
 
-    # Penalize on-chain
+    # Penalize on-chain (with confirmation tracking)
+    penalty_result = {"ok": False}
     freelancer = db.query(User).filter(User.id == job.freelancer_id).first()
     if freelancer and freelancer.wallet_address:
-        try:
-            from blockchain_interface import contract, w3
-            tx = contract.functions.penalizeClient(freelancer.wallet_address).transact()
-            w3.eth.wait_for_transaction_receipt(tx)
-            freelancer.trust_score = contract.functions.getTrust(freelancer.wallet_address).call()
-        except Exception:
-            pass
+        from blockchain_interface import safe_penalize
+        penalty_result = safe_penalize(freelancer.wallet_address)
+        if penalty_result["ok"]:
+            freelancer.trust_score = penalty_result["trust"]
 
     db.commit()
+
+    # Commit rejection to JobLedger (Phase 3)
+    bc_fail = {"ok": False}
+    if LEDGER_AVAILABLE:
+        fail_data = json.dumps({
+            "job_id": job_id, "step": step,
+            "decision": "REJECTED",
+            "ai_score": ms.ai_score,
+            "freelancer_id": job.freelancer_id,
+        }, sort_keys=True)
+        bc_fail = ledger_commit_decision(
+            job_id, step, False, 0,
+            bytes.fromhex(_sha256_hex(fail_data)),
+        )
+
     return {
         "ok": True, "step": step, "status": "failed",
         "message": "Freelancer can resubmit this milestone",
+        "blockchain_penalty": penalty_result,
+        "blockchain_decision": bc_fail,
+    }
+
+
+# ===================================================================
+# BLOCKCHAIN VERIFICATION ENDPOINT
+# ===================================================================
+
+@router.get("/jobs/{job_id}/milestones/{step}/blockchain")
+def get_milestone_blockchain_proof(
+    job_id: int, step: int,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retrieve the COMPLETE on-chain block for a milestone from JobLedger.
+    Returns the full stored record + event data for all 4 phases.
+    """
+    db = current_user._db_session
+    ms = db.query(Milestone).filter(
+        Milestone.job_id == job_id, Milestone.step_number == step
+    ).first()
+    if not ms:
+        raise HTTPException(status_code=404, detail="Milestone not found")
+
+    job = db.query(Job).filter(Job.id == job_id).first()
+
+    # Read from JobLedger contract
+    onchain_job = None
+    onchain_milestone = None
+    if LEDGER_AVAILABLE:
+        onchain_job = ledger_get_job(job_id)
+        onchain_milestone = ledger_get_milestone(job_id, step)
+
+    # Determine verification status per phase
+    phases = {}
+    if onchain_milestone:
+        null_hash = "0x" + "00" * 32
+        phases["requirements"] = {
+            "committed": onchain_milestone.get("requirementsHash", null_hash) != null_hash,
+            "hash": onchain_milestone.get("requirementsHash"),
+            "timestamp": onchain_milestone.get("requirementsTimestamp"),
+        }
+        phases["submission"] = {
+            "committed": onchain_milestone.get("submissionHash", null_hash) != null_hash,
+            "hash": onchain_milestone.get("submissionHash"),
+            "timestamp": onchain_milestone.get("submissionTimestamp"),
+        }
+        phases["ai_review"] = {
+            "committed": onchain_milestone.get("aiHash", null_hash) != null_hash,
+            "hash": onchain_milestone.get("aiHash"),
+            "ai_score": onchain_milestone.get("aiScore"),
+            "ai_pass": onchain_milestone.get("aiPass"),
+            "timestamp": onchain_milestone.get("aiTimestamp"),
+        }
+        phases["decision"] = {
+            "committed": onchain_milestone.get("decided", False),
+            "approved": onchain_milestone.get("approved"),
+            "payment": onchain_milestone.get("paymentAmount"),
+            "hash": onchain_milestone.get("decisionHash"),
+            "timestamp": onchain_milestone.get("decisionTimestamp"),
+        }
+
+    all_committed = all(p.get("committed", False) for p in phases.values()) if phases else False
+
+    return {
+        "job_id": job_id,
+        "step": step,
+        "milestone_title": ms.title,
+        "status": ms.status.value,
+        "all_phases_committed": all_committed,
+        "onchain_job": onchain_job,
+        "onchain_milestone": onchain_milestone,
+        "phases": phases,
     }
 
 # ===================================================================

@@ -107,6 +107,7 @@ export const api = {
     aiReview: (jobId, step) => postJson(`/jobs/${jobId}/milestones/${step}/ai_review`, {}),
     approve: (jobId, step) => postJson(`/jobs/${jobId}/milestones/${step}/approve`, {}),
     fail: (jobId, step) => postJson(`/jobs/${jobId}/milestones/${step}/fail`, {}),
+    blockchain: (jobId, step) => fetchApi(`/jobs/${jobId}/milestones/${step}/blockchain`),
   },
 
   // Worker Score

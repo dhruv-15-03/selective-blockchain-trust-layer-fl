@@ -474,6 +474,13 @@ def _startup_train_anomaly_detector():
     except Exception:
         pass
 
+    # Verify the server is the contract owner (critical for penalize/reward)
+    from blockchain_interface import verify_owner
+    if verify_owner():
+        print("Blockchain owner verification: PASSED")
+    else:
+        print("WARNING: Blockchain owner verification FAILED - penalize/reward calls will revert")
+
 
 class ModelUpdate(BaseModel):
     client_id: str
@@ -546,21 +553,23 @@ def submit_update(update: ModelUpdate):
             f"md2={md2_score:.4f}",
         )
 
-        tx = contract.functions.penalizeClient(client_addr).transact()
-        w3.eth.wait_for_transaction_receipt(tx)
-
-        new_trust = contract.functions.getTrust(client_addr).call()
+        from blockchain_interface import safe_penalize, safe_get_trust
+        penalty_result = safe_penalize(client_addr)
+        new_trust = penalty_result["trust"] if penalty_result["ok"] else safe_get_trust(client_addr, 100)
         submitted_clients.add(update.client_id)
 
         return {
             "message": "Client penalized (malicious update or hash mismatch)",
             "new_trust": new_trust,
+            "penalization_confirmed": penalty_result["ok"],
+            "penalization_error": penalty_result.get("error"),
             "md2_score": md2_score,
             "hash_matches": hash_matches,
         }
 
     # 🔥 3️⃣ Trust verification from blockchain (authorization)
-    trust = contract.functions.getTrust(client_addr).call()
+    from blockchain_interface import safe_get_trust
+    trust = safe_get_trust(client_addr, 0)
     threshold_contract = contract.functions.THRESHOLD().call()
 
     if trust < threshold_contract:
@@ -572,12 +581,10 @@ def submit_update(update: ModelUpdate):
     submitted_clients.add(update.client_id)
 
     # 🔥 4️⃣ Trust recovery: reward client for a good update
-    try:
-        tx = contract.functions.rewardClient(client_addr).transact()
-        w3.eth.wait_for_transaction_receipt(tx)
-        trust = contract.functions.getTrust(client_addr).call()
-    except Exception:
-        pass  # reward not available on older contract deployment
+    from blockchain_interface import safe_reward
+    reward_result = safe_reward(client_addr)
+    if reward_result["ok"]:
+        trust = reward_result["trust"]
 
     return {
         "message": "Update accepted",
@@ -602,12 +609,13 @@ def aggregate():
         client_ids = list(client_updates.keys())
         updates = [client_updates[cid] for cid in client_ids]
 
-        # Fetch on-chain trust scores for weighting
+        # Fetch on-chain trust scores for weighting (with safe fallback)
+        from blockchain_interface import safe_get_trust
         trust_scores = []
         for cid in client_ids:
             addr = client_address_mapping.get(cid)
             if addr:
-                t = contract.functions.getTrust(addr).call()
+                t = safe_get_trust(addr, fallback=100)
             else:
                 t = 0
             trust_scores.append(float(t))
@@ -665,7 +673,7 @@ def aggregate():
             continue
 
         client_addr = client_address_mapping[client_id]
-        trust = contract.functions.getTrust(client_addr).call()
+        trust = safe_get_trust(client_addr, fallback=0)
 
         if client_id not in trust_history:
             trust_history[client_id] = []
@@ -1140,22 +1148,17 @@ def _upwork_decide(req: DecisionRequest, action: str):
         decision = "DISPUTE_CLOSED_RELEASED" if is_legit else "DISPUTE_CLOSED_REFUNDED"
 
     # Penalize parties based on consistency with AI.
-    # - Freelancer is penalized if AI says FRAUD.
-    # - Client is penalized if they choose an action inconsistent with AI verdict.
-    try:
-        owner_addr = w3.eth.accounts[0]
-        # penalize freelancer if AI says fraud
-        if not is_legit:
-            tx_f = contract.functions.penalizeClient(job["freelancer_addr"]).transact()
-            w3.eth.wait_for_transaction_receipt(tx_f)
+    from blockchain_interface import safe_penalize
+    penalties = {}
 
-        # penalize client if approves despite fraud (or disputes despite legit)
-        client_inconsistent = (action == "APPROVE" and not is_legit) or (action == "DISPUTE" and is_legit)
-        if client_inconsistent:
-            tx_c = contract.functions.penalizeClient(job["client_addr"]).transact()
-            w3.eth.wait_for_transaction_receipt(tx_c)
-    except Exception:
-        pass
+    # penalize freelancer if AI says fraud
+    if not is_legit:
+        penalties["freelancer"] = safe_penalize(job["freelancer_addr"])
+
+    # penalize client if approves despite fraud (or disputes despite legit)
+    client_inconsistent = (action == "APPROVE" and not is_legit) or (action == "DISPUTE" and is_legit)
+    if client_inconsistent:
+        penalties["client"] = safe_penalize(job["client_addr"])
 
     decision_payload = {
         "job_id": req.job_id,
@@ -1180,6 +1183,7 @@ def _upwork_decide(req: DecisionRequest, action: str):
         "job_id": req.job_id,
         "decision": decision,
         "decision_hash_hex": decision_hash_hex,
+        "penalties": penalties,
     }
 
 
@@ -1270,6 +1274,132 @@ def _serve_static_html(filename: str) -> HTMLResponse:
             return HTMLResponse(f.read())
     except FileNotFoundError:
         return HTMLResponse(f"<h3>{filename} not found</h3>")
+
+
+# ===================================================================
+# PUBLIC BLOCKCHAIN EXPLORER (no auth needed — for judges/demo)
+# ===================================================================
+
+@app.get("/explorer/ui", response_class=HTMLResponse)
+def blockchain_explorer_ui():
+    """Visual block explorer page — no auth needed."""
+    try:
+        p = Path(__file__).with_name("explorer.html")
+        with open(p, "r", encoding="utf-8") as f:
+            return HTMLResponse(f.read())
+    except FileNotFoundError:
+        return HTMLResponse("<h3>explorer.html not found</h3>")
+
+
+@app.get("/explorer")
+def blockchain_explorer():
+    """Public endpoint: shows all on-chain data from both contracts. No auth needed."""
+    result = {
+        "network": "Hardhat Local (chainId: 31337)",
+        "rpc": "http://127.0.0.1:7545",
+        "contracts": {},
+        "blocks": [],
+        "accounts": [],
+    }
+
+    try:
+        from blockchain_interface import contract as trust_contract, w3 as trust_w3
+
+        # Contract info
+        result["contracts"]["TrustLayer"] = {
+            "address": trust_contract.address,
+            "functions": ["registerClient", "submitHash", "penalizeClient", "rewardClient", "getTrust"],
+        }
+
+        # Accounts + trust scores
+        for i, addr in enumerate(trust_w3.eth.accounts[:10]):
+            trust = 0
+            blacklisted = False
+            try:
+                trust = trust_contract.functions.getTrust(addr).call()
+                blacklisted = trust_contract.functions.blacklisted(addr).call()
+            except Exception:
+                pass
+            bal = trust_w3.eth.get_balance(addr) / 10**18
+            result["accounts"].append({
+                "index": i,
+                "address": addr,
+                "balance_eth": round(bal, 6),
+                "trust_score": trust,
+                "blacklisted": blacklisted,
+                "role": "SERVER/OWNER" if i == 0 else f"Account[{i}]",
+            })
+
+        # Block history
+        for b in range(1, min(trust_w3.eth.block_number + 1, 50)):
+            block = trust_w3.eth.get_block(b, full_transactions=True)
+            for tx in block.transactions:
+                receipt = trust_w3.eth.get_transaction_receipt(tx["hash"])
+                result["blocks"].append({
+                    "block": b,
+                    "tx_hash": tx["hash"].hex(),
+                    "from": tx["from"],
+                    "to": tx.get("to", "CONTRACT_DEPLOY"),
+                    "gas_used": receipt.gasUsed,
+                    "status": "success" if receipt.status == 1 else "failed",
+                })
+
+    except Exception as e:
+        result["error"] = str(e)[:200]
+
+    # JobLedger data
+    try:
+        from job_ledger_interface import ledger_contract, ledger_get_job, ledger_get_milestone
+
+        result["contracts"]["JobLedger"] = {
+            "address": ledger_contract.address,
+            "functions": ["createJob", "commitRequirements", "commitSubmission", "commitAIReview", "commitDecision", "getJob", "getMilestone"],
+        }
+
+        total = ledger_contract.functions.totalJobs().call()
+        result["total_jobs_on_chain"] = total
+
+        jobs_data = []
+        for jid in range(1, total + 1):
+            try:
+                j = ledger_get_job(jid)
+                if not j.get("exists"):
+                    continue
+                job_entry = {
+                    "job_id": jid,
+                    "client": j.get("client"),
+                    "freelancer": j.get("freelancer"),
+                    "budget": j.get("totalBudget"),
+                    "steps": j.get("totalSteps"),
+                    "created_at": j.get("createdAt"),
+                    "milestones": [],
+                }
+                for s in range(1, j.get("totalSteps", 0) + 1):
+                    ms = ledger_get_milestone(jid, s)
+                    if ms and not ms.get("error"):
+                        null_hash = "0x" + "00" * 32
+                        job_entry["milestones"].append({
+                            "step": s,
+                            "requirements_committed": ms.get("requirementsHash", null_hash) != null_hash,
+                            "requirements_hash": ms.get("requirementsHash"),
+                            "submission_committed": ms.get("submissionHash", null_hash) != null_hash,
+                            "submission_hash": ms.get("submissionHash"),
+                            "ai_score": ms.get("aiScore"),
+                            "ai_pass": ms.get("aiPass"),
+                            "ai_committed": ms.get("aiHash", null_hash) != null_hash,
+                            "decided": ms.get("decided"),
+                            "approved": ms.get("approved"),
+                            "payment": ms.get("paymentAmount"),
+                        })
+                jobs_data.append(job_entry)
+            except Exception:
+                pass
+        result["jobs"] = jobs_data
+
+    except Exception as e:
+        result["ledger_error"] = str(e)[:200]
+
+    return result
 
 
 @app.get("/upwork/create", response_class=HTMLResponse)

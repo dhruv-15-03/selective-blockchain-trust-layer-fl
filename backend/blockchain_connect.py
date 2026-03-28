@@ -13,7 +13,7 @@ except Exception:
     pass
 
 # Contract Address (your deployed contract)
-contract_address = to_checksum_address("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512")
+contract_address = to_checksum_address("0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6")
 
 # ABI (paste your full ABI here)
 abi = [
