@@ -45,11 +45,26 @@ export default function Profile() {
   const [jobsError, setJobsError] = useState('')
   const [jobs, setJobs] = useState([])
 
+  // Backend resume data (blockchain-verified)
+  const [resume, setResume] = useState(null)
+  const [resumeLoading, setResumeLoading] = useState(false)
+
   useEffect(() => {
     if (!userId) return
     setBioState(store.getBio(userId))
     setSkillsState(store.getSkills(userId))
     setJobIds(store.getJobHistory(userId))
+
+    // Fetch blockchain-verified resume from backend
+    const loadResume = async () => {
+      setResumeLoading(true)
+      try {
+        const data = await api.resume.mine()
+        if (data && !data.ERROR) setResume(data)
+      } catch {}
+      setResumeLoading(false)
+    }
+    loadResume()
   }, [userId, store])
 
   useEffect(() => {
@@ -319,6 +334,160 @@ export default function Profile() {
           </div>
         )}
       </motion.div>
+
+      {/* Blockchain-Verified Resume Section */}
+      {!isClient && (
+        <motion.div className="card" style={{ marginTop: '1.5rem' }} whileHover={{ y: -2 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <div>
+              <div style={{ fontWeight: 800, marginBottom: '0.25rem' }}>⛓ Blockchain-Verified Resume</div>
+              <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
+                Skills, projects, and scores verified on-chain — tamper-proof proof of work.
+              </div>
+            </div>
+            {resume?.verification?.blockchain_committed && (
+              <span className="badge badge-low" style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>
+                ✓ On-Chain Verified
+              </span>
+            )}
+          </div>
+
+          {resumeLoading && <div style={{ color: 'var(--muted)' }}>Loading resume from blockchain...</div>}
+
+          {resume && (
+            <>
+              {/* Trust Score Section */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 8, padding: '0.75rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#818cf8' }}>{resume.trust?.project_trust_score || 0}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Trust Score</div>
+                </div>
+                <div style={{ background: 'rgba(34,197,94,0.1)', borderRadius: 8, padding: '0.75rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#22c55e' }}>{resume.trust?.confidence_score || 0}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Confidence</div>
+                </div>
+                <div style={{ background: 'rgba(251,191,36,0.1)', borderRadius: 8, padding: '0.75rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#fbbf24' }}>{resume.trust?.avg_quality_score || 0}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Quality Avg</div>
+                </div>
+                <div style={{ background: 'rgba(96,165,250,0.1)', borderRadius: 8, padding: '0.75rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#60a5fa' }}>{resume.trust?.trust_level || 'Bronze'}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Trust Level</div>
+                </div>
+              </div>
+
+              {/* Stats Row */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '1.25rem', fontSize: '0.9rem' }}>
+                <div><span style={{ color: 'var(--muted)' }}>Jobs:</span> <strong>{resume.stats?.total_jobs_completed || 0}</strong></div>
+                <div><span style={{ color: 'var(--muted)' }}>Milestones:</span> <strong>{resume.stats?.total_milestones_passed || 0}</strong></div>
+                <div><span style={{ color: 'var(--muted)' }}>Earnings:</span> <strong>${resume.stats?.total_earnings || 0}</strong></div>
+                <div><span style={{ color: 'var(--muted)' }}>Rating:</span> <strong>{resume.stats?.avg_client_rating || 0}/5</strong></div>
+                <div><span style={{ color: 'var(--muted)' }}>On-time streak:</span> <strong>{resume.trust?.on_time_streak || 0}</strong></div>
+              </div>
+
+              {/* Verified Skills */}
+              {resume.verified_skills?.length > 0 && (
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Verified Skills (from completed projects)</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {resume.verified_skills.map((sk) => (
+                      <div
+                        key={sk.skill}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                          padding: '0.3rem 0.7rem', borderRadius: 999,
+                          border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.08)',
+                        }}
+                      >
+                        <span style={{ fontWeight: 700, color: '#a5b4fc' }}>{sk.skill}</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                          {sk.projects_count} proj · {sk.avg_score}%
+                        </span>
+                        {sk.verified && <span style={{ color: '#22c55e', fontSize: '0.7rem' }}>✓</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Projects */}
+              {resume.projects?.length > 0 && (
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Completed Projects</div>
+                  {resume.projects.map((p) => (
+                    <div
+                      key={p.job_id}
+                      style={{
+                        padding: '0.6rem 0.8rem', marginBottom: '0.4rem', borderRadius: 8,
+                        border: '1px solid var(--border)', background: 'rgba(10,10,15,0.3)',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{p.title}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                          {p.milestones_completed}/{p.total_milestones} milestones · AI avg: {p.avg_ai_score}%
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>${p.budget}</span>
+                        {p.blockchain_verified && (
+                          <span style={{ fontSize: '0.7rem', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', padding: '0.15rem 0.4rem', borderRadius: 4 }}>
+                            ⛓ Verified
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Reviews */}
+              {resume.reviews?.length > 0 && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Client Reviews</div>
+                  {resume.reviews.map((r, i) => (
+                    <div key={i} style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.9rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <span style={{ color: '#fbbf24' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                        <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>{r.from} · {r.project}</span>
+                      </div>
+                      {r.comment && <div style={{ color: 'var(--muted)', marginTop: '0.2rem' }}>{r.comment}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Blockchain Verification Hash */}
+              {resume.verification && (
+                <div style={{
+                  padding: '0.6rem 0.8rem', borderRadius: 8, fontSize: '0.8rem',
+                  background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)',
+                }}>
+                  <div style={{ fontWeight: 700, color: '#818cf8', marginBottom: '0.3rem' }}>⛓ Blockchain Verification</div>
+                  <div style={{ color: 'var(--muted)', wordBreak: 'break-all' }}>
+                    Resume Hash: {resume.verification.resume_hash}
+                  </div>
+                  {resume.verification.blockchain_tx && (
+                    <div style={{ color: 'var(--muted)', marginTop: '0.15rem' }}>
+                      TX: {resume.verification.blockchain_tx}
+                    </div>
+                  )}
+                  <div style={{ color: '#64748b', marginTop: '0.3rem', fontStyle: 'italic' }}>
+                    {resume.verification.message}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {!resumeLoading && !resume && (
+            <div style={{ color: 'var(--muted)' }}>
+              Complete milestones to build your verified resume. Each project and skill gets recorded on the blockchain.
+            </div>
+          )}
+        </motion.div>
+      )}
     </motion.div>
   )
 }

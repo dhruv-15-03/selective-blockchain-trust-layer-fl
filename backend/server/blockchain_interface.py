@@ -17,7 +17,7 @@ except Exception as e:
 w3.eth.default_account = w3.eth.accounts[0]
 
 # 🔹 Replace with your deployed contract address
-contract_address = to_checksum_address("0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6")
+contract_address = to_checksum_address("0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0")
 
 # 🔹 Paste your ABI here (copy from trustLayer.json)
 abi = [

@@ -13,7 +13,7 @@ async function parseJson(res) {
 }
 
 function getAuthHeaders() {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('trust_token') || localStorage.getItem('token');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -119,5 +119,11 @@ export const api = {
   // AI Analysis
   analyze: {
     repo: (githubUrl, criteria) => postJson('/analyze/repo', { github_repo_url: githubUrl, acceptance_criteria: criteria }),
+  },
+
+  // Blockchain-Verified Resume
+  resume: {
+    mine: () => fetchApi('/user/resume'),
+    public: (userId) => fetchApi(`/user/resume/${userId}`),
   },
 };

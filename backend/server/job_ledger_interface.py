@@ -9,7 +9,7 @@ import json
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:7545"))
 print("JobLedger blockchain connected:", w3.is_connected())
 
-LEDGER_ADDRESS = to_checksum_address("0x8A791620dd6260079BF849Dc5567aDC3F2FdC318")
+LEDGER_ADDRESS = to_checksum_address("0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9")
 
 # ABI for JobLedger contract
 LEDGER_ABI = json.loads("""[
