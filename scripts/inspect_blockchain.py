@@ -5,7 +5,7 @@ import json
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:7545"))
 latest = w3.eth.block_number
 
-CONTRACT_ADDR = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+CONTRACT_ADDR = "0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab"
 
 # Known event signatures
 event_sigs = {

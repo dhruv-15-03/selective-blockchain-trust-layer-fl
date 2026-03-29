@@ -2134,6 +2134,10 @@ def get_verified_resume(current_user: User = Depends(get_current_user)):
     db = current_user._db_session
     ws = _get_worker_score(db, current_user.id)
 
+    declared_skills = []
+    if current_user.skills:
+        declared_skills = [s.strip() for s in current_user.skills.split(",") if s.strip()]
+
     # Get all completed milestones with AI scores
     completed_milestones = (
         db.query(Milestone)
@@ -2179,6 +2183,8 @@ def get_verified_resume(current_user: User = Depends(get_current_user)):
                 "job_id": job.id,
                 "title": job.title,
                 "description": job.description[:200] if job.description else "",
+                "full_description": job.description or "",
+                "requirements_text": job.requirements_text,
                 "skills": job.skills_required,
                 "budget": job.budget,
                 "status": job.status.value,
@@ -2187,6 +2193,14 @@ def get_verified_resume(current_user: User = Depends(get_current_user)):
                 "avg_ai_score": 0,
                 "scores": [],
                 "blockchain_verified": False,
+                "milestone_titles": [],
+                "acceptance_points": [],
+                "github_repos": [],
+                "proof_hashes": [],
+                "timeline": {
+                    "submitted_at": str(ms.submitted_at) if ms.submitted_at else None,
+                    "reviewed_at": str(ms.ai_checked_at) if ms.ai_checked_at else None,
+                },
             })
             existing = projects[-1]
 
@@ -2195,6 +2209,13 @@ def get_verified_resume(current_user: User = Depends(get_current_user)):
             existing["scores"].append(ms.ai_score)
         if ms.proof_hash:
             existing["blockchain_verified"] = True
+            existing["proof_hashes"].append(ms.proof_hash)
+        if ms.title and ms.title not in existing["milestone_titles"]:
+            existing["milestone_titles"].append(ms.title)
+        if ms.acceptance_criteria and len(existing["acceptance_points"]) < 4:
+            existing["acceptance_points"].append(ms.acceptance_criteria)
+        if ms.github_repo_url and ms.github_repo_url not in existing["github_repos"]:
+            existing["github_repos"].append(ms.github_repo_url)
 
     # Compute averages
     for skill_data in verified_skills.values():
@@ -2207,6 +2228,8 @@ def get_verified_resume(current_user: User = Depends(get_current_user)):
         if proj["scores"]:
             proj["avg_ai_score"] = round(sum(proj["scores"]) / len(proj["scores"]), 2)
         del proj["scores"]
+        proj["proof_hashes"] = proj["proof_hashes"][:3]
+        proj["github_repos"] = proj["github_repos"][:2]
 
     # Get reviews
     reviews = db.query(Review).filter(Review.reviewee_id == current_user.id).all()
@@ -2237,6 +2260,113 @@ def get_verified_resume(current_user: User = Depends(get_current_user)):
                0.25 * ws.avg_quality_score -
                min((ws.avg_fraud_risk or 0) * 30, 20))
     unified = max(0, min(100, round(unified, 2)))
+
+    verified_skill_list = sorted(
+        verified_skills.values(),
+        key=lambda x: x["avg_score"],
+        reverse=True,
+    )
+    verified_skill_names = [skill["skill"] for skill in verified_skill_list]
+    declared_only_skills = [skill for skill in declared_skills if skill.lower() not in verified_skill_names]
+
+    primary_skills = verified_skill_names[:6] if verified_skill_names else declared_skills[:6]
+    headline_parts = []
+    if primary_skills:
+        headline_parts.append(" | ".join(skill.title() for skill in primary_skills[:3]))
+    if current_user.experience_years:
+        headline_parts.append(f"{current_user.experience_years}+ years experience")
+    if unified >= 80:
+        headline_parts.append(f"{_trust_level(trust_score)} trust-tier contributor")
+    professional_headline = " • ".join(headline_parts) if headline_parts else "Blockchain-verified freelancer profile"
+
+    summary_lines = []
+    if current_user.bio:
+        summary_lines.append(current_user.bio.strip())
+    if verified_skill_names:
+        summary_lines.append(
+            "Verified delivery across "
+            + ", ".join(skill.title() for skill in verified_skill_names[:5])
+            + " with milestone outcomes anchored on-chain."
+        )
+    elif declared_skills:
+        summary_lines.append(
+            "Profile skills include "
+            + ", ".join(skill.title() for skill in declared_skills[:5])
+            + ". Verified project evidence will accumulate automatically as milestones pass review."
+        )
+    else:
+        summary_lines.append(
+            "This freelancer profile is ready to accumulate project evidence, verified skills, and AI-reviewed delivery history on-chain."
+        )
+    summary_lines.append(
+        f"Current trust profile: {unified}/100 project trust, {_trust_level(trust_score)} blockchain trust tier, "
+        f"{ws.total_milestones_completed} passed milestones, and ${round(current_user.total_earnings or 0, 2)} verified earnings."
+    )
+    professional_summary = " ".join(summary_lines)
+
+    achievement_items = [
+        {
+            "title": "Project Trust Score",
+            "value": unified,
+            "description": "Composite score derived from on-chain trust, AI quality, deadline adherence, and fraud risk.",
+        },
+        {
+            "title": "Blockchain Trust",
+            "value": trust_score,
+            "description": "Wallet-linked trust value read from the TrustLayer contract.",
+        },
+        {
+            "title": "Milestones Passed",
+            "value": ws.total_milestones_completed,
+            "description": "Approved milestone deliveries recorded through the platform workflow.",
+        },
+        {
+            "title": "Client Rating",
+            "value": round(ws.avg_client_rating, 2) if ws.avg_client_rating else 0,
+            "description": "Average rating from submitted client reviews.",
+        },
+    ]
+
+    experience_entries = []
+    for proj in projects:
+        experience_entries.append({
+            "title": proj["title"],
+            "role": "Freelancer Delivery",
+            "description": proj["full_description"] or proj["description"],
+            "highlights": proj["milestone_titles"] or ["Milestone delivery verified through AI review and blockchain proofs."],
+            "acceptance_criteria": proj["acceptance_points"],
+            "skills": [s.strip() for s in (proj.get("skills") or "").split(",") if s.strip()],
+            "budget": proj["budget"],
+            "avg_ai_score": proj["avg_ai_score"],
+            "milestones_completed": proj["milestones_completed"],
+            "total_milestones": proj["total_milestones"],
+            "github_repos": proj["github_repos"],
+            "proof_hashes": proj["proof_hashes"],
+            "blockchain_verified": proj["blockchain_verified"],
+            "timeline": proj["timeline"],
+        })
+
+    if not experience_entries:
+        experience_entries.append({
+            "title": "Freelancer Profile Initialized",
+            "role": "Freelancer Delivery",
+            "description": current_user.bio or "Profile has been prepared for blockchain-verified milestone delivery. The next approved project will appear here automatically.",
+            "highlights": [
+                "Wallet-backed trust profile is active.",
+                "Resume hash can be committed on-chain for tamper-proof verification.",
+                "Skills and projects will convert into verified experience after approved milestone reviews.",
+            ],
+            "acceptance_criteria": [],
+            "skills": declared_skills,
+            "budget": 0,
+            "avg_ai_score": 0,
+            "milestones_completed": ws.total_milestones_completed,
+            "total_milestones": ws.total_milestones_completed,
+            "github_repos": [],
+            "proof_hashes": [],
+            "blockchain_verified": bool(current_user.wallet_address),
+            "timeline": {"submitted_at": None, "reviewed_at": None},
+        })
 
     # Generate resume hash for blockchain verification
     resume_data = json.dumps({
@@ -2270,12 +2400,22 @@ def get_verified_resume(current_user: User = Depends(get_current_user)):
             "name": current_user.name,
             "email": current_user.email,
             "role": "Freelancer",
+            "headline": professional_headline,
             "bio": current_user.bio,
             "github": current_user.github_username,
             "portfolio": current_user.portfolio_url,
             "hourly_rate": current_user.hourly_rate,
             "experience_years": current_user.experience_years,
             "member_since": str(current_user.created_at) if current_user.created_at else None,
+        },
+        "summary": {
+            "professional_summary": professional_summary,
+            "key_strengths": [
+                f"{_trust_level(trust_score)} blockchain trust tier",
+                f"{round(ws.confidence_score, 2)} confidence score",
+                f"{ws.total_milestones_completed} milestone approvals",
+                f"{len(verified_skill_names)} verified skills",
+            ],
         },
         "trust": {
             "project_trust_score": unified,
@@ -2295,12 +2435,17 @@ def get_verified_resume(current_user: User = Depends(get_current_user)):
             "avg_client_rating": round(ws.avg_client_rating, 2) if ws.avg_client_rating else 0,
             "total_reviews": len(reviews),
         },
-        "verified_skills": sorted(
-            verified_skills.values(),
-            key=lambda x: x["avg_score"],
-            reverse=True,
-        ),
+        "verified_skills": verified_skill_list,
+        "declared_skills": declared_skills,
+        "declared_only_skills": declared_only_skills,
+        "competencies": {
+            "primary": primary_skills,
+            "verified": verified_skill_names,
+            "declared": declared_skills,
+        },
         "projects": projects,
+        "experience": experience_entries,
+        "achievements": achievement_items,
         "reviews": review_summary[:10],
         "verification": {
             "resume_hash": "0x" + resume_hash,
