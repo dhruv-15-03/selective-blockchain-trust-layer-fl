@@ -1549,7 +1549,7 @@ def match_freelancers(job_id: int, query: MatchQuery, current_user: User = Depen
 # GITHUB + AI ANALYSIS ENGINE
 # ===================================================================
 
-def _fetch_latest_commit(repo_url: str) -> dict | None:
+def _fetch_latest_commit(repo_url: str) -> Optional[dict]:
     """Fetch latest commit SHA + timestamp from GitHub for deadline verification."""
     import requests as req_lib
     match = re.match(r"https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?/?$", repo_url)
@@ -1739,7 +1739,7 @@ def _llm_code_review(
     acceptance_criteria: str,
     milestone_description: str = "",
     job_description: str = "",
-) -> dict | None:
+) -> Optional[dict]:
     """
     Use GitHub Models API (GPT-4o-mini) for deep semantic code review.
     Returns structured scores and per-criteria feedback.

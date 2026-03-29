@@ -1,17 +1,21 @@
 {
   "name": "blockchain",
   "version": "1.0.0",
-  "description": "This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.",
+  "description": "TrustLayer + JobLedger — Hardhat ya Truffle se Ganache par deploy.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "hardhat compile",
+    "deploy:ganache:hh": "hardhat run scripts/deploy.js --network ganache",
+    "compile:truffle": "npx --yes truffle@5.11.5 compile",
+    "migrate:ganache": "npx --yes truffle@5.11.5 migrate --network development --reset",
+    "test": "echo \"Run: npx hardhat test\" && exit 0"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.22.2"
+    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
+    "hardhat": "^3.2.0"
   }
 }

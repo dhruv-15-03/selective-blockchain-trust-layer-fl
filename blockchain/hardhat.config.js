@@ -7,6 +7,7 @@ module.exports = {
     settings: {
       viaIR: true,
       optimizer: { enabled: true, runs: 200 },
+      evmVersion: "paris",
     },
   },
   networks: {
